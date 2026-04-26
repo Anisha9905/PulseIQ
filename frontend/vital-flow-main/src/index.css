@@ -1,0 +1,179 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Arctic Frost — Non-Invasive Glucose Monitor
+   Calm, clinical, futuristic. All colors HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 210 35% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 35% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 35% 12%;
+
+    --primary: 203 50% 36%;          /* deep arctic blue #2e6b8a */
+    --primary-foreground: 210 40% 98%;
+    --primary-glow: 197 44% 60%;     /* #6ba3c8 */
+
+    --secondary: 207 50% 88%;        /* #b8d4e8 */
+    --secondary-foreground: 210 35% 18%;
+
+    --muted: 210 40% 95%;
+    --muted-foreground: 210 15% 45%;
+
+    --accent: 210 60% 94%;           /* #e8f0f8 */
+    --accent-foreground: 203 50% 30%;
+
+    --destructive: 4 70% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 55% 48%;
+    --warning: 38 92% 55%;
+
+    --border: 210 30% 90%;
+    --input: 210 30% 90%;
+    --ring: 203 50% 50%;
+
+    --radius: 1.25rem;
+
+    /* Glucose state colors */
+    --glucose-normal: 152 60% 50%;
+    --glucose-low: 38 92% 58%;
+    --glucose-high: 4 75% 62%;
+
+    /* Gradients */
+    --gradient-hero: radial-gradient(ellipse at top, hsl(207 60% 96%), hsl(210 40% 98%));
+    --gradient-orb: radial-gradient(circle at 30% 30%, hsl(197 70% 75%), hsl(203 60% 45%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100% / 0.8), hsl(207 50% 96% / 0.6));
+    --gradient-aurora: linear-gradient(135deg, hsl(207 60% 92%), hsl(197 50% 88%), hsl(210 70% 95%));
+
+    /* Shadows — soft, layered */
+    --shadow-soft: 0 1px 2px hsl(210 35% 12% / 0.04), 0 8px 24px hsl(203 50% 36% / 0.06);
+    --shadow-glow: 0 0 60px hsl(197 70% 60% / 0.25);
+    --shadow-card: 0 1px 3px hsl(210 30% 20% / 0.04), 0 20px 40px -12px hsl(203 50% 36% / 0.12);
+
+    /* Transitions */
+    --ease-smooth: cubic-bezier(0.32, 0.72, 0, 1);
+    --transition-base: 320ms var(--ease-smooth);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 215 40% 6%;
+    --foreground: 210 30% 96%;
+
+    --card: 215 38% 10%;
+    --card-foreground: 210 30% 96%;
+
+    --popover: 215 38% 10%;
+    --popover-foreground: 210 30% 96%;
+
+    --primary: 197 70% 65%;
+    --primary-foreground: 215 40% 8%;
+    --primary-glow: 197 80% 70%;
+
+    --secondary: 215 30% 16%;
+    --secondary-foreground: 210 30% 96%;
+
+    --muted: 215 30% 14%;
+    --muted-foreground: 210 15% 65%;
+
+    --accent: 215 35% 18%;
+    --accent-foreground: 197 70% 75%;
+
+    --destructive: 4 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 55% 55%;
+    --warning: 38 92% 60%;
+
+    --border: 215 30% 18%;
+    --input: 215 30% 18%;
+    --ring: 197 70% 65%;
+
+    --gradient-hero: radial-gradient(ellipse at top, hsl(215 50% 14%), hsl(215 40% 6%));
+    --gradient-orb: radial-gradient(circle at 30% 30%, hsl(197 90% 70%), hsl(210 70% 30%));
+    --gradient-card: linear-gradient(145deg, hsl(215 38% 12% / 0.7), hsl(215 38% 8% / 0.5));
+    --gradient-aurora: linear-gradient(135deg, hsl(215 50% 12%), hsl(210 60% 14%), hsl(197 50% 16%));
+
+    --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.3), 0 8px 24px hsl(197 70% 50% / 0.1);
+    --shadow-glow: 0 0 80px hsl(197 80% 60% / 0.35);
+    --shadow-card: 0 1px 3px hsl(0 0% 0% / 0.4), 0 20px 40px -12px hsl(197 50% 30% / 0.25);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  .glass {
+    background: var(--gradient-card);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid hsl(var(--border) / 0.6);
+  }
+
+  .text-display {
+    font-family: 'Space Grotesk', sans-serif;
+    font-feature-settings: "tnum";
+    letter-spacing: -0.04em;
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+}
+
+@layer utilities {
+  .bg-aurora {
+    background: var(--gradient-aurora);
+  }
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  .transition-smooth {
+    transition: all var(--transition-base);
+  }
+}

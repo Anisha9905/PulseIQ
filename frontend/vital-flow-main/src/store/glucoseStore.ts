@@ -1,0 +1,161 @@
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+
+export type GlucoseState = "normal" | "low" | "high";
+export type EntryState = "before_food" | "after_food" | "fasting" | "post_activity";
+
+export interface GlucoseReading {
+  time: number;
+  value: number;
+}
+
+export interface AlertItem {
+  id: string;
+  type: "info" | "warning" | "critical";
+  title: string;
+  message: string;
+  time: number;
+}
+
+export interface ManualEntry {
+  id: string;
+  time: number;
+  state: EntryState;
+  value: number;
+  note?: string;
+}
+
+export interface UserProfile {
+  name: string;
+  email: string;
+  age?: number;
+  gender?: "male" | "female" | "other";
+  dob?: string;
+  phone?: string;
+  avatar?: string; // data URL
+}
+
+interface GlucoseStore {
+  current: number;
+  trend: GlucoseReading[];
+  history: GlucoseReading[]; // 7-day synthetic history
+  state: GlucoseState;
+  calibration: number;
+  confidence: number;
+  connected: boolean;
+  lastSignal: number;
+  alerts: AlertItem[];
+  insights: string[];
+  entries: ManualEntry[];
+  user: UserProfile | null;
+  onboardingComplete: boolean;
+  setUser: (u: UserProfile | null) => void;
+  updateUser: (patch: Partial<UserProfile>) => void;
+  setOnboardingComplete: (v: boolean) => void;
+  pushReading: (value: number) => void;
+  pushAlert: (a: Omit<AlertItem, "id" | "time">) => void;
+  dismissAlert: (id: string) => void;
+  setCalibration: (v: number) => void;
+  setConfidence: (v: number) => void;
+  setConnected: (v: boolean) => void;
+  pingSignal: () => void;
+  addEntry: (e: Omit<ManualEntry, "id">) => void;
+  removeEntry: (id: string) => void;
+}
+
+const classify = (v: number): GlucoseState => {
+  if (v < 70) return "low";
+  if (v > 140) return "high";
+  return "normal";
+};
+
+const seedTrend = (): GlucoseReading[] => {
+  const now = Date.now();
+  const arr: GlucoseReading[] = [];
+  let v = 105;
+  for (let i = 60; i >= 0; i--) {
+    v += (Math.random() - 0.5) * 6;
+    v = Math.max(75, Math.min(150, v));
+    arr.push({ time: now - i * 60_000, value: Math.round(v) });
+  }
+  return arr;
+};
+
+const seedHistory = (): GlucoseReading[] => {
+  const now = Date.now();
+  const arr: GlucoseReading[] = [];
+  let v = 100;
+  // 7 days, every 30 min
+  for (let i = 7 * 48; i >= 0; i--) {
+    const hourOfDay = new Date(now - i * 30 * 60_000).getHours();
+    // simulate meal spikes
+    const mealBoost =
+      hourOfDay === 8 || hourOfDay === 13 || hourOfDay === 19
+        ? 25 + Math.random() * 15
+        : 0;
+    v += (Math.random() - 0.5) * 8;
+    const value = Math.max(70, Math.min(180, Math.round(v + mealBoost * Math.random())));
+    arr.push({ time: now - i * 30 * 60_000, value });
+    v = Math.max(80, Math.min(140, v));
+  }
+  return arr;
+};
+
+export const useGlucoseStore = create<GlucoseStore>()(
+  persist(
+    (set) => ({
+      current: 108,
+      trend: seedTrend(),
+      history: seedHistory(),
+      state: "normal",
+      calibration: 42,
+      confidence: 68,
+      connected: true,
+      lastSignal: Date.now(),
+      alerts: [],
+      insights: [
+        "Your glucose has been stable for the past 2 hours.",
+        "Slight upward trend detected after lunch — within normal range.",
+        "Sleep quality last night correlates with steady morning levels.",
+      ],
+      entries: [],
+      user: null,
+      onboardingComplete: false,
+      setUser: (user) => set({ user }),
+      updateUser: (patch) =>
+        set((s) => ({ user: s.user ? { ...s.user, ...patch } : null })),
+      setOnboardingComplete: (onboardingComplete) => set({ onboardingComplete }),
+      pushReading: (value) =>
+        set((s) => {
+          const next = [...s.trend.slice(-90), { time: Date.now(), value }];
+          return { trend: next, current: value, state: classify(value), lastSignal: Date.now() };
+        }),
+      pushAlert: (a) =>
+        set((s) => ({
+          alerts: [{ ...a, id: crypto.randomUUID(), time: Date.now() }, ...s.alerts].slice(0, 5),
+        })),
+      dismissAlert: (id) => set((s) => ({ alerts: s.alerts.filter((a) => a.id !== id) })),
+      setCalibration: (calibration) => set({ calibration }),
+      setConfidence: (confidence) => set({ confidence }),
+      setConnected: (connected) => set({ connected }),
+      pingSignal: () => set({ lastSignal: Date.now(), connected: true }),
+      addEntry: (e) =>
+        set((s) => ({
+          entries: [{ ...e, id: crypto.randomUUID() }, ...s.entries].slice(0, 200),
+          calibration: Math.min(100, s.calibration + 4),
+          confidence: Math.min(100, s.confidence + 2),
+        })),
+      removeEntry: (id) => set((s) => ({ entries: s.entries.filter((e) => e.id !== id) })),
+    }),
+    {
+      name: "aura-glucose",
+      partialize: (s) => ({
+        user: s.user,
+        onboardingComplete: s.onboardingComplete,
+        entries: s.entries,
+        calibration: s.calibration,
+        confidence: s.confidence,
+      }),
+    }
+  )
+);
