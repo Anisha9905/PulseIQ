@@ -38,7 +38,7 @@ export function RiskCard() {
     <motion.div
       layout
       transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
-      className={`relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br ${meta.bg} p-6 shadow-soft ring-1 ${meta.ring}`}
+      className={`relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br ${meta.bg} p-6 shadow-soft ring-1 ${meta.ring} h-[140px] w-full`}
     >
       <div className="flex items-start justify-between">
         <div>

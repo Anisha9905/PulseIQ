@@ -7,13 +7,13 @@ export function CalibrationCard() {
     calibration < 40
       ? "Learning your baseline…"
       : calibration < 80
-      ? "Refining model accuracy…"
+      ? "Refining model accuracy by the model"
       : calibration < 100
       ? "Almost calibrated"
       : "Fully calibrated";
 
   return (
-    <div className="rounded-3xl border border-border bg-card p-6 shadow-soft">
+    <div className="rounded-3xl border border-border bg-card p-6 shadow-soft h-[140px] w-full flex flex-col justify-between">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Calibration</p>

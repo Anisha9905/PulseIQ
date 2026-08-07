@@ -9,6 +9,7 @@ import Index from "./pages/Index.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import Profile from "./pages/Profile.tsx";
 import History from "./pages/History.tsx";
+import Reports from "./pages/Reports.tsx";
 import AddDetails from "./pages/AddDetails.tsx";
 import Calibration from "./pages/Calibration.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -50,6 +51,14 @@ const App = () => (
             element={
               <RequireOnboarding>
                 <History />
+              </RequireOnboarding>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <RequireOnboarding>
+                <Reports />
               </RequireOnboarding>
             }
           />

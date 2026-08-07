@@ -33,6 +33,21 @@ export function useLivePredictions() {
           pushReading(glucose);
           setConnected(true);
 
+          // Sync vitals and health score fields from Firestore
+          if (data.health_score !== undefined) {
+            useGlucoseStore.setState({
+              heartRate: data.heart_rate,
+              temperature: data.temperature,
+              stress: data.stress_level,
+              spo2: data.spo2,
+              activity: data.activity_status,
+              healthScore: data.health_score,
+              healthCategory: data.health_category,
+              healthExplanation: data.health_explanation,
+              healthRecommendations: data.health_recommendations || []
+            });
+          }
+
           // Fire alerts based on risk
           if (risk === "high") {
             pushAlert({

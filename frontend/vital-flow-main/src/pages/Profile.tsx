@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
-import { Mail, Phone, Calendar, User as UserIcon, Edit3, Check, Wifi, WifiOff } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Mail, Phone, Calendar, User as UserIcon, Edit3, Check, Wifi, WifiOff, Activity } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { ProfileAvatar3D } from "@/components/ProfileAvatar3D";
 import { DeviceRing3D } from "@/components/DeviceRing3D";
@@ -23,16 +23,45 @@ export default function Profile() {
     name: user?.name || "",
     phone: user?.phone || "",
     age: user?.age?.toString() || "",
+    height: user?.height?.toString() || "175",
+    weight: user?.weight?.toString() || "72",
   });
+
+  useEffect(() => {
+    if (user) {
+      setDraft({
+        name: user.name || "",
+        phone: user.phone || "",
+        age: user.age?.toString() || "",
+        height: user.height?.toString() || "175",
+        weight: user.weight?.toString() || "72",
+      });
+    }
+  }, [user]);
 
   const save = () => {
     updateUser({
       name: draft.name,
       phone: draft.phone,
       age: draft.age ? Number(draft.age) : undefined,
+      height: draft.height ? Number(draft.height) : undefined,
+      weight: draft.weight ? Number(draft.weight) : undefined,
     });
     setEditing(false);
   };
+
+  const heightNum = Number(draft.height) || 175;
+  const weightNum = Number(draft.weight) || 72;
+  const bmi = Number((weightNum / Math.pow(heightNum / 100, 2)).toFixed(1));
+
+  const getBmiCategory = (val: number) => {
+    if (val < 18.5) return { label: "Underweight", color: "text-sky-500" };
+    if (val < 25) return { label: "Normal weight", color: "text-success" };
+    if (val < 30) return { label: "Overweight", color: "text-warning" };
+    return { label: "Obese", color: "text-destructive" };
+  };
+
+  const bmiCat = getBmiCategory(bmi);
 
   return (
     <AppShell>
@@ -91,6 +120,19 @@ export default function Profile() {
               <EditField label="Age" value={draft.age} onChange={(v) => setDraft({ ...draft, age: v })} editing={editing} icon={Calendar} type="number" />
               <EditField label="Phone" value={draft.phone} onChange={(v) => setDraft({ ...draft, phone: v })} editing={editing} icon={Phone} />
               <EditField label="Email" value={user?.email || ""} onChange={() => {}} editing={false} icon={Mail} />
+              <EditField label="Height (cm)" value={draft.height} onChange={(v) => setDraft({ ...draft, height: v })} editing={editing} icon={Activity} type="number" />
+              <EditField label="Weight (kg)" value={draft.weight} onChange={(v) => setDraft({ ...draft, weight: v })} editing={editing} icon={Activity} type="number" />
+              
+              <div className="sm:col-span-2">
+                <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Activity className="h-3.5 w-3.5 text-primary" />
+                  Calculated BMI (Body Mass Index)
+                </span>
+                <div className="flex h-11 items-center justify-between rounded-2xl border border-border bg-accent/15 px-4 text-sm font-semibold">
+                  <span className="text-foreground">{bmi} kg/m²</span>
+                  <span className={bmiCat.color}>{bmiCat.label}</span>
+                </div>
+              </div>
             </div>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2">

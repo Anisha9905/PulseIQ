@@ -13,17 +13,24 @@ POST /train
 POST /predict/{user_id}
     Body: { "phase": 0-3, "hour": 0-23, "age": int, "gender": 0-2 }
     Returns: { "glucose": float, "trend": str, "risk": str, "confidence": float }
+
+POST /sensor-data
+    Body: { "ax": float, "ay": float, "az": float, "gx": float, "gy": float, "gz": float, "temp": float }
+    Stores latest MPU6050 accelerometer & gyroscope data for realtime access.
+
+GET /sensor-data/latest
+    Returns the latest MPU6050 accelerometer & gyroscope readings.
 """
 
 import os, json, math, time, threading
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 import numpy as np
 import joblib
 import xgboost as xgb
 from sklearn.preprocessing import LabelEncoder
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -44,6 +51,41 @@ MODELS_DIR.mkdir(exist_ok=True)
 last_predicted: dict[str, float] = {}
 
 
+# ── MPU Sensor Realtime Data Store & WebSocket Manager ─────────────────────────
+mpu_lock = threading.Lock()
+latest_mpu_data: dict[str, Any] = {
+    "status": "waiting_for_data",
+    "timestamp": None,
+    "data": None
+}
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+        self._lock = threading.Lock()
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        with self._lock:
+            self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        with self._lock:
+            if websocket in self.active_connections:
+                self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        with self._lock:
+            connections = list(self.active_connections)
+        for connection in connections:
+            try:
+                await connection.send_json(message)
+            except Exception:
+                pass
+
+manager = ConnectionManager()
+
+
 # ── Pydantic schemas ────────────────────────────────────────────────────────────
 class GlucoseEntry(BaseModel):
     day: int          # 1-7
@@ -61,6 +103,17 @@ class PredictRequest(BaseModel):
     hour: int         # 0-23
     age: int
     gender: int       # 0=male, 1=female, 2=other
+
+class MPUSensorPayload(BaseModel):
+    ax: Optional[float] = None  # Accelerometer X
+    ay: Optional[float] = None  # Accelerometer Y
+    az: Optional[float] = None  # Accelerometer Z
+    gx: Optional[float] = None  # Gyroscope X
+    gy: Optional[float] = None  # Gyroscope Y
+    gz: Optional[float] = None  # Gyroscope Z
+    temp: Optional[float] = None # Temperature
+    raw: Optional[str] = None
+    timestamp: Optional[float] = None
 
 
 # ── Feature builder ─────────────────────────────────────────────────────────────
@@ -173,6 +226,53 @@ async def predict(user_id: str, req: PredictRequest):
         "risk": risk,
         "confidence": confidence,
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ENDPOINTS: Realtime MPU6050 Accelerometer & Gyroscope Data
+# ══════════════════════════════════════════════════════════════════════════════
+@app.post("/sensor-data")
+async def receive_mpu_data(payload: MPUSensorPayload):
+    ts = payload.timestamp or time.time()
+    incoming = {k: v for k, v in payload.model_dump().items() if v is not None}
+    incoming["timestamp"] = ts
+
+    with mpu_lock:
+        global latest_mpu_data
+        current_data = (latest_mpu_data.get("data") or {}) if isinstance(latest_mpu_data.get("data"), dict) else {}
+        merged_data = {**current_data, **incoming}
+
+        record = {
+            "status": "online",
+            "timestamp": ts,
+            "data": merged_data
+        }
+        latest_mpu_data = record
+
+    await manager.broadcast(record)
+    return {"success": True, "timestamp": ts, "received": merged_data}
+
+
+
+@app.get("/sensor-data/latest")
+async def get_latest_mpu_data():
+    with mpu_lock:
+        return latest_mpu_data
+
+
+@app.websocket("/ws/sensor-data")
+async def websocket_mpu_data(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        with mpu_lock:
+            current = dict(latest_mpu_data)
+        await websocket.send_json(current)
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception:
+        manager.disconnect(websocket)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

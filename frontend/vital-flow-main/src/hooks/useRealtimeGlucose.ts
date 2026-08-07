@@ -32,6 +32,21 @@ export function useRealtimeGlucose() {
         // Update the storefront state with the new value
         pushReading(currentValue);
 
+        // Update vitals and health score fields in the store
+        if (data.healthScore !== undefined) {
+          useGlucoseStore.setState({
+            heartRate: data.heartRate,
+            temperature: data.temperature,
+            stress: data.stress,
+            spo2: data.spo2,
+            activity: data.activity,
+            healthScore: data.healthScore,
+            healthCategory: data.healthCategory,
+            healthExplanation: data.healthExplanation,
+            healthRecommendations: data.healthRecommendations || []
+          });
+        }
+
         // Generate alerts based on the risk level provided by the backend
         if (currentRisk === "High" && Math.random() > 0.7) {
           pushAlert({ type: "warning", title: "Elevated reading", message: `Glucose at ${currentValue} mg/dL` });
