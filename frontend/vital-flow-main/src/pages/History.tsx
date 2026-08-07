@@ -1,97 +1,21 @@
 import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from "recharts";
-import { TrendingUp, TrendingDown, Activity, Sparkles, Moon, Coffee, Utensils, Zap, Loader2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { useGlucoseStore } from "@/store/glucoseStore";
 import { useRealtimeGlucose } from "@/hooks/useRealtimeGlucose";
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { CalibrationTrendChart } from "@/components/dashboard/CalibrationTrendChart";
 
 const fadeUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
 type Range = "day" | "week";
-
-interface FirebaseEntry {
-  id: string;
-  glucose_value: number;
-  state: string;
-  day_number?: number;
-  phase?: number;
-  recorded_at: any;
-}
-
-const PHASE_META = [
-  { state: "fasting",       label: "Fasting",       icon: Moon,     color: "bg-blue-500/15 text-blue-600 dark:text-blue-400",   dot: "bg-blue-500"   },
-  { state: "before_meal",   label: "Before Meal",   icon: Coffee,   color: "bg-amber-500/15 text-amber-600 dark:text-amber-400", dot: "bg-amber-500"  },
-  { state: "after_meal",    label: "After Meal",    icon: Utensils, color: "bg-orange-500/15 text-orange-600 dark:text-orange-400", dot: "bg-orange-500" },
-  { state: "post_activity", label: "Post Activity", icon: Zap,      color: "bg-green-500/15 text-green-600 dark:text-green-400",  dot: "bg-green-500"  },
-];
 
 export default function History() {
   useRealtimeGlucose();
   const history = useGlucoseStore((s) => s.history);
   const entries = useGlucoseStore((s) => s.entries);
   const [range, setRange] = useState<Range>("day");
-
-  // ── Firebase calibration entries ─────────────────────────────────────────────
-  const [fbEntries, setFbEntries]   = useState<FirebaseEntry[]>([]);
-  const [fbLoading, setFbLoading]   = useState(true);
-  const [activeDay, setActiveDay]   = useState<number | null>(null);
-
-  useEffect(() => {
-    const fetchEntries = async () => {
-      setFbLoading(true);
-      try {
-        const uid = auth.currentUser?.uid || "demo_user";
-        const q = query(
-          collection(db, "historical_glucose_entries"),
-          where("user_id", "==", uid),
-          orderBy("recorded_at", "asc")
-        );
-        const snap = await getDocs(q);
-        const docs: FirebaseEntry[] = snap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        } as FirebaseEntry));
-        setFbEntries(docs);
-      } catch (err) {
-        console.error("Failed to fetch Firebase entries:", err);
-      } finally {
-        setFbLoading(false);
-      }
-    };
-    fetchEntries();
-  }, []);
-
-  // ── Group calibration data by day ─────────────────────────────────────────────
-  const calibrationByDay = useMemo(() => {
-    const days: Record<number, FirebaseEntry[]> = {};
-    fbEntries.forEach((e) => {
-      const dayNum = e.day_number ?? 1;
-      if (!days[dayNum]) days[dayNum] = [];
-      days[dayNum].push(e);
-    });
-    return days;
-  }, [fbEntries]);
-
-  const calibrationDays = Object.keys(calibrationByDay).map(Number).sort((a, b) => a - b);
-
-  // ── Per-phase summary across all 7 days ──────────────────────────────────────
-  const phaseSummary = useMemo(() => {
-    return PHASE_META.map((pm) => {
-      const matching = fbEntries.filter((e) => e.state === pm.state);
-      if (!matching.length) return { ...pm, avg: 0, min: 0, max: 0, count: 0 };
-      const vals = matching.map((e) => e.glucose_value);
-      return {
-        ...pm,
-        avg: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length),
-        min: Math.min(...vals),
-        max: Math.max(...vals),
-        count: vals.length,
-      };
-    });
-  }, [fbEntries]);
 
   // ── Existing chart logic ──────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -234,100 +158,9 @@ export default function History() {
         </div>
 
         {/* ════════════════════════════════════════════════════════════════════
-            7-DAY CALIBRATION READINGS FROM FIREBASE
+            7-DAY CALIBRATION TREND CHART
         ════════════════════════════════════════════════════════════════════ */}
-        <motion.section {...fadeUp} transition={{ duration: 0.5, delay: 0.2 }} className="mt-6 rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="font-display text-lg font-semibold">7-Day Calibration Readings</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">All glucose entries used to train your personal XGBoost model</p>
-            </div>
-            {fbLoading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
-          </div>
-
-          {/* Phase summary cards */}
-          {!fbLoading && fbEntries.length > 0 && (
-            <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {phaseSummary.map((ps) => (
-                <div key={ps.state} className={`rounded-2xl p-4 ${ps.color.split(" ")[0]}`}>
-                  <div className={`flex items-center gap-1.5 ${ps.color.split(" ").slice(1).join(" ")}`}>
-                    <ps.icon className="h-3.5 w-3.5" />
-                    <span className="text-xs font-semibold">{ps.label}</span>
-                  </div>
-                  <p className="mt-2 text-display text-xl font-bold">{ps.avg} <span className="text-xs font-normal opacity-70">mg/dL avg</span></p>
-                  <p className="mt-0.5 text-[11px] opacity-60">{ps.min}–{ps.max} range · {ps.count} readings</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Day tabs */}
-          {!fbLoading && calibrationDays.length > 0 && (
-            <>
-              <div className="mb-4 flex flex-wrap gap-2">
-                <button onClick={() => setActiveDay(null)}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-smooth ${activeDay === null ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>
-                  All Days
-                </button>
-                {calibrationDays.map((d) => (
-                  <button key={d} onClick={() => setActiveDay(d)}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-smooth ${activeDay === d ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>
-                    Day {d}
-                  </button>
-                ))}
-              </div>
-
-              {/* Entries grid */}
-              <div className="space-y-4">
-                {(activeDay !== null ? [activeDay] : calibrationDays).map((day) => (
-                  <motion.div key={day} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="overflow-hidden rounded-2xl border border-border">
-                    <div className="border-b border-border bg-accent/30 px-4 py-2.5">
-                      <p className="text-sm font-semibold">Day {day}</p>
-                    </div>
-                    <div className="grid grid-cols-2 divide-x divide-border sm:grid-cols-4">
-                      {PHASE_META.map((pm) => {
-                        const entry = calibrationByDay[day]?.find((e) => e.state === pm.state);
-                        const glucose = entry?.glucose_value;
-                        const risk = glucose ? (glucose > 160 ? "high" : glucose < 70 ? "low" : "normal") : null;
-                        return (
-                          <div key={pm.state} className="p-4">
-                            <div className={`mb-2 flex items-center gap-1.5 ${pm.color.split(" ").slice(1).join(" ")}`}>
-                              <pm.icon className="h-3.5 w-3.5" />
-                              <span className="text-[11px] font-medium">{pm.label}</span>
-                            </div>
-                            {glucose !== undefined ? (
-                              <>
-                                <p className="text-display text-2xl font-bold">{glucose}</p>
-                                <p className="text-[10px] text-muted-foreground">mg/dL</p>
-                                <div className={`mt-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                  risk === "high" ? "bg-orange-500/15 text-orange-600 dark:text-orange-400" :
-                                  risk === "low"  ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" :
-                                  "bg-green-500/15 text-green-600 dark:text-green-400"
-                                }`}>
-                                  {risk === "high" ? "High" : risk === "low" ? "Low" : "Normal"}
-                                </div>
-                              </>
-                            ) : (
-                              <p className="text-sm text-muted-foreground">—</p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* Empty state */}
-          {!fbLoading && fbEntries.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-              <p className="text-sm text-muted-foreground">No calibration readings yet.</p>
-              <p className="mt-1 text-xs text-muted-foreground">Complete the 7-day calibration to see your data here.</p>
-            </div>
-          )}
-        </motion.section>
+        <CalibrationTrendChart />
 
         {/* Heatmap */}
         <motion.section {...fadeUp} transition={{ duration: 0.5, delay: 0.25 }} className="mt-6 rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8">

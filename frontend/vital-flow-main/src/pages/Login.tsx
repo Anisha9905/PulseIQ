@@ -67,26 +67,27 @@ export default function Login() {
       const credential = await signInWithEmailAndPassword(auth, email, password);
       const uid = credential.user.uid;
 
-      // 2. Fetch stored profile from Firestore
-      const profileSnap = await getDoc(doc(db, "profiles", uid));
-      if (profileSnap.exists()) {
-        const p = profileSnap.data();
-        setUser({
-          name:   p.full_name  || email.split("@")[0],
-          email:  email,
-          age:    p.age        || undefined,
-          gender: p.gender     || "other",
-          dob:    p.dob        || "",
-          phone:  p.phone      || "",
-          avatar: p.profile_image_url || undefined,
-        });
-      } else {
-        // Profile not saved yet — set minimal user
-        setUser({ name: email.split("@")[0], email });
-      }
+      // 2. Fetch stored profile from Firestore in background
+      getDoc(doc(db, "profiles", uid)).then((profileSnap) => {
+        if (profileSnap.exists()) {
+          const p = profileSnap.data();
+          setUser({
+            name:   p.full_name  || email.split("@")[0],
+            email:  email,
+            age:    p.age        || undefined,
+            gender: p.gender     || "other",
+            dob:    p.dob        || "",
+            phone:  p.phone      || "",
+            avatar: p.profile_image_url || undefined,
+          });
+        }
+      }).catch(console.error);
 
-      // 3. Update last_login_at
-      await setDoc(doc(db, "users", uid), { last_login_at: Timestamp.now() }, { merge: true });
+      // Optimistically set minimal user
+      setUser({ name: email.split("@")[0], email });
+
+      // 3. Update last_login_at in background
+      setDoc(doc(db, "users", uid), { last_login_at: Timestamp.now() }, { merge: true }).catch(console.error);
 
       setOnboardingComplete(true);
       navigate("/dashboard");
