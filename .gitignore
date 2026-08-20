@@ -1,0 +1,29 @@
+# Python virtual environment
+venv/
+
+# Node modules
+node_modules/
+backend/node_modules/
+frontend/vital-flow-main/node_modules/
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+backend/__pycache__/
+frontend/vital-flow-main/src/__pycache__/
+
+# Local environment files
+.env
+.env.local
+backend/.env
+frontend/vital-flow-main/.env
+
+# Local machine learning models
+backend/models/*.ubj
+backend/models/*.json
+
+# MPU / Sensor Hardware Files
+backend/serial_reader.py
+backend/test_sensor_integration.py
+frontend/vital-flow-main/src/hooks/useSensorData.ts
+

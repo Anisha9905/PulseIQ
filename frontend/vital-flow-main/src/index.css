@@ -1,0 +1,179 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Arctic Frost — Non-Invasive Glucose Monitor
+   Calm, clinical, futuristic. All colors HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;          /* #F8FAFC */
+    --foreground: 222.2 47.4% 11.2%;     /* #0F172A */
+
+    --card: 0 0% 100%;                  /* #FFFFFF */
+    --card-foreground: 222.2 47.4% 11.2%;/* #0F172A */
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+
+    --primary: 221.2 83.2% 53.3%;        /* #2563EB */
+    --primary-foreground: 210 40% 98%;
+    --primary-glow: 217.2 91.2% 59.8%;   /* #3B82F6 */
+
+    --secondary: 210 40% 96.1%;          /* #F1F5F9 */
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;/* #64748B */
+
+    --accent: 213.8 100% 96.9%;          /* #EFF6FF */
+    --accent-foreground: 221.2 83.2% 53.3%;/* #2563EB */
+
+    --destructive: 0 84.2% 60.2%;        /* #EF4444 */
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 158.6 64.5% 51.6%;        /* #10B981 */
+    --warning: 37.7 92.1% 50.2%;         /* #F59E0B */
+
+    --border: 214.3 31.8% 91.4%;         /* #E2E8F0 */
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+
+    --radius: 1.0rem;
+
+    /* Glucose state colors */
+    --glucose-normal: 158.6 64.5% 51.6%;
+    --glucose-low: 37.7 92.1% 50.2%;
+    --glucose-high: 0 84.2% 60.2%;
+
+    /* Gradients */
+    --gradient-hero: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+    --gradient-orb: radial-gradient(circle at 30% 30%, #60A5FA, #2563EB);
+    --gradient-card: linear-gradient(145deg, #FFFFFF, #F8FAFC);
+    --gradient-aurora: linear-gradient(135deg, #EFF6FF, #DBEAFE, #F8FAFC);
+
+    /* Shadows — soft, layered */
+    --shadow-soft: 0 1px 3px rgba(15, 23, 42, 0.03), 0 10px 30px -10px rgba(37, 99, 235, 0.05);
+    --shadow-glow: 0 0 60px rgba(37, 99, 235, 0.15);
+    --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.02), 0 12px 24px -10px rgba(15, 23, 42, 0.04);
+
+    /* Transitions */
+    --ease-smooth: cubic-bezier(0.32, 0.72, 0, 1);
+    --transition-base: 320ms var(--ease-smooth);
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 215.4 16.3% 46.9%;
+    --sidebar-primary: 221.2 83.2% 53.3%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 213.8 100% 96.9%;
+    --sidebar-accent-foreground: 221.2 83.2% 53.3%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 221.2 83.2% 53.3%;
+  }
+
+  .dark {
+    --background: 222.2 47.4% 11.2%;
+    --foreground: 210 40% 98%;
+
+    --card: 217.2 32.6% 17.5%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 217.2 32.6% 17.5%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary-glow: 217.2 91.2% 59.8%;
+
+    --secondary: 217.2 32.6% 12%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 14%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 16%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 158.6 64.5% 51.6%;
+    --warning: 37.7 92.1% 50.2%;
+
+    --border: 215 27.9% 26.9%;
+    --input: 215 27.9% 26.9%;
+    --ring: 224.3 76.3% 48%;
+
+    --gradient-hero: radial-gradient(ellipse at top, #1E293B, #0F172A);
+    --gradient-orb: radial-gradient(circle at 30% 30%, #3B82F6, #1E3A8A);
+    --gradient-card: linear-gradient(145deg, #1E293B, #0F172A);
+    --gradient-aurora: linear-gradient(135deg, #1E293B, #111827, #0F172A);
+
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(37, 99, 235, 0.08);
+    --shadow-glow: 0 0 80px rgba(37, 99, 235, 0.25);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 20px 40px -12px rgba(15, 23, 42, 0.15);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  .glass {
+    background: var(--gradient-card);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid hsl(var(--border) / 0.6);
+  }
+
+  .text-display {
+    font-family: 'Space Grotesk', sans-serif;
+    font-feature-settings: "tnum";
+    letter-spacing: -0.04em;
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+}
+
+@layer utilities {
+  .bg-aurora {
+    background: var(--gradient-aurora);
+  }
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  .transition-smooth {
+    transition: all var(--transition-base);
+  }
+}
