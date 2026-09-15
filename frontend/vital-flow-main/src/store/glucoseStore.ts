@@ -49,6 +49,32 @@ interface GlucoseStore {
   entries: ManualEntry[];
   user: UserProfile | null;
   onboardingComplete: boolean;
+  sensorMode: "SIMULATION" | "REAL_ESP32";
+  esp32Status: "CONNECTED" | "DISCONNECTED" | "RECONNECTING";
+  esp32Data: {
+    temperature: number;
+    gsr: number;
+    heartRate: number;
+    state: string;
+    accelX: number;
+    accelY: number;
+    accelZ: number;
+    accelMagnitude?: number;
+    derivedActivity?: string;
+    timestamp: string;
+  } | null;
+  heartRate: number;
+  temperature: number;
+  stress: string;
+  spo2: number;
+  activity: string;
+  healthScore: number;
+  healthCategory: string;
+  healthExplanation: string;
+  healthRecommendations: string[];
+  setSensorMode: (mode: "SIMULATION" | "REAL_ESP32") => void;
+  setEsp32Status: (status: "CONNECTED" | "DISCONNECTED" | "RECONNECTING") => void;
+  setEsp32Data: (data: any) => void;
   setUser: (u: UserProfile | null) => void;
   updateUser: (patch: Partial<UserProfile>) => void;
   setOnboardingComplete: (v: boolean) => void;
@@ -121,6 +147,21 @@ export const useGlucoseStore = create<GlucoseStore>()(
       entries: [],
       user: null,
       onboardingComplete: false,
+      sensorMode: "SIMULATION",
+      esp32Status: "DISCONNECTED",
+      esp32Data: null,
+      heartRate: 75,
+      temperature: 36.6,
+      stress: "low",
+      spo2: 98,
+      activity: "sitting",
+      healthScore: 92,
+      healthCategory: "Excellent",
+      healthExplanation: "All physiological systems are operating within optimal limits.",
+      healthRecommendations: ["Keep up the great work!", "Stay active and well hydrated."],
+      setSensorMode: (sensorMode) => set({ sensorMode }),
+      setEsp32Status: (esp32Status) => set({ esp32Status }),
+      setEsp32Data: (esp32Data) => set({ esp32Data }),
       setUser: (user) => set({ user }),
       updateUser: (patch) =>
         set((s) => ({ user: s.user ? { ...s.user, ...patch } : null })),

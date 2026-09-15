@@ -13,6 +13,8 @@ import { useLivePredictions } from "@/hooks/useLivePredictions";
 import { useGlucoseStore } from "@/store/glucoseStore";
 import { ProfileAvatar3D } from "@/components/ProfileAvatar3D";
 
+import { Esp32LiveCard } from "@/components/dashboard/Esp32LiveCard";
+
 const fadeUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
 export default function Dashboard() {
@@ -45,8 +47,13 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        <motion.section {...fadeUp} transition={{ duration: 0.5, delay: 0.05 }} className="mb-8">
+        <motion.section {...fadeUp} transition={{ duration: 0.5, delay: 0.05 }} className="mb-6">
           <HeroOrb />
+        </motion.section>
+
+        {/* ESP32 Hardware Integration Card */}
+        <motion.section {...fadeUp} transition={{ duration: 0.5, delay: 0.08 }} className="mb-8">
+          <Esp32LiveCard />
         </motion.section>
 
         <div className="grid gap-6 lg:grid-cols-3 items-start">
