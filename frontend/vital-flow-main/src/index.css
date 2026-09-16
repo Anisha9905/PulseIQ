@@ -163,6 +163,8 @@
 @layer utilities {
   .bg-aurora {
     background: var(--gradient-aurora);
+    background-size: 200% 200%;
+    animation: aurora-shift 18s ease-in-out infinite alternate;
   }
   .shadow-soft {
     box-shadow: var(--shadow-soft);
@@ -175,5 +177,43 @@
   }
   .transition-smooth {
     transition: all var(--transition-base);
+  }
+  .animate-pulse-slow {
+    animation: pulse-slow 4s ease-in-out infinite;
+  }
+  .animate-float-subtle {
+    animation: float-subtle 6s ease-in-out infinite;
+  }
+}
+
+@keyframes aurora-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes float-subtle {
+  0%, 100% {
+    transform: translateY(-4px);
+  }
+  50% {
+    transform: translateY(4px);
   }
 }
