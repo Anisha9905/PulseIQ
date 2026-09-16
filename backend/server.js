@@ -68,6 +68,31 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ status: "error", message: err.message }));
       }
     });
+  } else if (req.method === "POST" && req.url === "/api/train") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      const mlReq = http.request({
+        hostname: "127.0.0.1",
+        port: 8001,
+        path: "/train",
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) }
+      }, (mlRes) => {
+        let respData = "";
+        mlRes.on("data", (c) => respData += c);
+        mlRes.on("end", () => {
+          res.writeHead(mlRes.statusCode || 200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+          res.end(respData);
+        });
+      });
+      mlReq.on("error", (err) => {
+        res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify({ error: err.message }));
+      });
+      mlReq.write(body);
+      mlReq.end();
+    });
   } else if (req.method === "OPTIONS") {
     res.writeHead(204, {
       "Access-Control-Allow-Origin": "*",
@@ -585,7 +610,7 @@ wss.on("connection", (ws) => {
     } catch (e) {
       console.error("Backend Firebase sync error:", e.message);
     }
-  }, 1000);
+  }, 5000);
 
   ws.on("close", () => clearInterval(interval));
 });

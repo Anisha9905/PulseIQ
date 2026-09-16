@@ -73,38 +73,51 @@ export default function Calibration() {
     // ── Step 2: Call Python ML service to train XGBoost ──────────────────────
     setTrainStage("training");
     try {
-      const res = await fetch("http://127.0.0.1:8001/train", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ user_id: uid, entries }),
-      });
+      let res: Response;
+      try {
+        res = await fetch("http://localhost:5000/api/train", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ user_id: uid, entries }),
+        });
+      } catch {
+        res = await fetch("http://127.0.0.1:8001/train", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ user_id: uid, entries }),
+        });
+      }
 
       if (!res.ok) throw new Error(`ML service returned ${res.status}`);
       const result = await res.json();
 
-      const conf = result.confidence ?? 85;
+      const conf = result.confidence ?? 90;
       setLocalConfidence(conf);
       setConfidence(Math.round(conf));
 
       // Store model metadata in Firebase
-      const { setDoc, doc } = await import("firebase/firestore");
-      await setDoc(doc(db, "ml_models", uid), {
-        model_id:        uid,
-        user_id:         uid,
-        model_version:   "xgb-v1",
-        status:          "active",
-        confidence_score: conf,
-        accuracy_score:  result.rmse,
-        n_samples:       result.n_samples,
-        training_end:    Timestamp.now(),
-        created_at:      Timestamp.now(),
-      });
+      try {
+        const { setDoc, doc } = await import("firebase/firestore");
+        await setDoc(doc(db, "ml_models", uid), {
+          model_id:        uid,
+          user_id:         uid,
+          model_version:   "xgb-v1",
+          status:          "active",
+          confidence_score: conf,
+          accuracy_score:  result.rmse,
+          n_samples:       result.n_samples,
+          training_end:    Timestamp.now(),
+          created_at:      Timestamp.now(),
+        });
+      } catch (e) {
+        console.warn("Firebase doc write warning:", e);
+      }
 
       setTrainStage("done");
       setTimeout(() => navigate("/dashboard"), 2500);
     } catch (err: any) {
       console.error("ML training error:", err);
-      setError("Could not reach the ML service. Start it with: python ml_service.py\n\nYou can still go to the dashboard.");
+      setError("Could not reach the ML service. Ensure backend/server.js and python ml_service.py are running.");
       setTrainStage("idle");
       setLoading(false);
     }
