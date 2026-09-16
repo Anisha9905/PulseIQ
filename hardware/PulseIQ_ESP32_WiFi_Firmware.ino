@@ -243,11 +243,7 @@ void loop() {
       }
       http.end();
     } else {
-      if (currentTime - lastReconnectAttempt > 10000) {
-        lastReconnectAttempt = currentTime;
-        Serial.println("Wi-Fi disconnected. Re-connecting...");
-        WiFi.begin(WIFI_SSID, WIFI_PASS);
-      }
+      Serial.println("Wi-Fi disconnected. Waiting for auto-reconnect...");
     }
 
     // OLED Display
