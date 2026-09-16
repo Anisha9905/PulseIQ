@@ -133,7 +133,20 @@ void setup() {
     display.display();
     delay(1500);
   } else {
-    Serial.println("\n[Wi-Fi WARNING] Connection timed out! Retrying in background...");
+    Serial.println("\n[Wi-Fi WARNING] Could not connect to Wi-Fi!");
+    Serial.println("Scanning nearby 2.4GHz Wi-Fi networks to diagnose...");
+    int n = WiFi.scanNetworks();
+    if (n == 0) {
+      Serial.println("-> No 2.4GHz Wi-Fi networks found. Enable 2.4GHz Hotspot/Router!");
+    } else {
+      Serial.print("-> Found "); Serial.print(n); Serial.println(" 2.4GHz networks nearby:");
+      for (int i = 0; i < n; ++i) {
+        Serial.print("   "); Serial.print(i + 1); Serial.print(": ");
+        Serial.print(WiFi.SSID(i)); Serial.print(" (RSSI: ");
+        Serial.print(WiFi.RSSI(i)); Serial.println(" dBm)");
+      }
+      Serial.println("Ensure your SSID matches one of the 2.4GHz networks listed above!");
+    }
   }
 
   Serial.println("------------------------------------------------------------");
