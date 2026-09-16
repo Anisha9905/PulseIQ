@@ -73,7 +73,7 @@ export default function Calibration() {
     // ── Step 2: Call Python ML service to train XGBoost ──────────────────────
     setTrainStage("training");
     try {
-      const res = await fetch("http://localhost:8001/train", {
+      const res = await fetch("http://127.0.0.1:8001/train", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ user_id: uid, entries }),

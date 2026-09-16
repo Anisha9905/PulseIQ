@@ -92,7 +92,7 @@ async function mlPredict(userId, phase, hour, age, gender) {
   return new Promise((resolve) => {
     const body = JSON.stringify({ phase, hour, age, gender });
     const req  = http.request({
-      hostname: "localhost",
+      hostname: "127.0.0.1",
       port: 8001,
       path: `/predict/${userId}`,
       method: "POST",
