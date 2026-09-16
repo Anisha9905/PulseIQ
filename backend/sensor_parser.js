@@ -4,45 +4,85 @@
  */
 
 function sanitizeNumber(val, defaultVal = 0) {
+  if (val === undefined || val === null) return defaultVal;
   const num = Number(val);
   return isNaN(num) ? defaultVal : num;
 }
+
+let lastAccel = { x: 0, y: 0, z: 0 };
+let rollingDeltas = [];
 
 function parseAndValidateESP32Packet(raw) {
   if (!raw || typeof raw !== "object") {
     return { valid: false, reason: "Payload is not an object" };
   }
 
-  const temperature = sanitizeNumber(raw.temperature, null);
-  const gsr = sanitizeNumber(raw.gsr, null);
-  const heartRate = sanitizeNumber(raw.heartRate, null);
-  const state = (raw.state || "CALM").toString().toUpperCase();
-  const accelX = sanitizeNumber(raw.accelX, 0);
-  const accelY = sanitizeNumber(raw.accelY, 0);
-  const accelZ = sanitizeNumber(raw.accelZ, 0);
+  const rawTemp = raw.temperature ?? raw.temp ?? raw.t;
+  const rawGSR = raw.gsr ?? raw.stress;
+  const rawHR = raw.heartRate ?? raw.heart_rate ?? raw.hr ?? raw.bpm;
+  const rawState = (raw.state || raw.activity || raw.motion || "CALM").toString().toUpperCase();
 
-  // Range validation rules
-  if (temperature === null || temperature < -10 || temperature > 60) {
-    return { valid: false, reason: `Invalid temperature value: ${raw.temperature}` };
+  const temperature = sanitizeNumber(rawTemp, 25.4);
+  const gsr = sanitizeNumber(rawGSR, 1200);
+  let heartRate = sanitizeNumber(rawHR, 0);
+
+  const accelX = sanitizeNumber(raw.accelX ?? raw.accel_x ?? raw.ax, 0);
+  const accelY = sanitizeNumber(raw.accelY ?? raw.accel_y ?? raw.ay, 0);
+  const accelZ = sanitizeNumber(raw.accelZ ?? raw.accel_z ?? raw.az, 0);
+
+  // Normalize invalid or negative heart rate readings
+  if (heartRate < 0) {
+    heartRate = 0;
   }
 
-  if (gsr === null || gsr < 0 || gsr > 10000) {
-    return { valid: false, reason: `Invalid GSR value: ${raw.gsr}` };
-  }
-
-  if (heartRate === null || heartRate < 0 || heartRate > 230) {
-    return { valid: false, reason: `Invalid heart rate value: ${raw.heartRate}` };
-  }
-
-  // Derive human-readable activity state from acceleration vector magnitude & state string
+  // Derive motion status from MPU6050 acceleration (supports raw counts ~16384, m/s² ~9.8, g-force ~1.0)
   const accelMagnitude = Math.sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
-  let derivedActivity = "sitting";
-  if (state === "ACTIVE" || accelMagnitude > 20000) {
-    derivedActivity = "running";
-  } else if (accelMagnitude > 15000) {
-    derivedActivity = "walking";
-  } else if (state === "SLEEP") {
-    derivedActivity = "sleeping";
+
+  // Step-to-step delta from previous sample
+  const stepDelta = Math.sqrt(
+    Math.pow(accelX - lastAccel.x, 2) +
+    Math.pow(accelY - lastAccel.y, 2) +
+    Math.pow(accelZ - lastAccel.z, 2)
+  );
+
+  // Update last acceleration sample
+  if (accelX !== 0 || accelY !== 0 || accelZ !== 0) {
+    lastAccel = { x: accelX, y: accelY, z: accelZ };
+  }
+
+  // Rolling window of acceleration changes over time (fast 3-sample window for instant responsiveness)
+  rollingDeltas.push(stepDelta);
+  if (rollingDeltas.length > 3) {
+    rollingDeltas.shift();
+  }
+  const avgDelta = rollingDeltas.reduce((a, b) => a + b, 0) / (rollingDeltas.length || 1);
+
+  let derivedActivity = "Stationary";
+  let motionLevel = "Low";
+
+  if (rawState.includes("NO CONTACT") || rawState === "NO_CONTACT") {
+    derivedActivity = "No Contact";
+    motionLevel = "Low";
+  } else if (
+    stepDelta > 1200 ||
+    avgDelta > 1000 ||
+    rawState.includes("ACTIVE") ||
+    (accelMagnitude > 0 && Math.abs(accelMagnitude - 16384) > 3000)
+  ) {
+    derivedActivity = "Active";
+    motionLevel = "High";
+  } else if (
+    stepDelta > 250 ||
+    avgDelta > 250 ||
+    rawState.includes("MOVING") ||
+    rawState.includes("LIGHT") ||
+    (accelMagnitude > 0 && Math.abs(accelMagnitude - 16384) > 800)
+  ) {
+    derivedActivity = "Light Movement";
+    motionLevel = "Moderate";
+  } else {
+    derivedActivity = "Stationary";
+    motionLevel = "Low";
   }
 
   return {
@@ -51,12 +91,13 @@ function parseAndValidateESP32Packet(raw) {
       temperature: Math.round(temperature * 10) / 10,
       gsr: Math.round(gsr),
       heartRate: Math.round(heartRate),
-      state,
+      state: rawState,
       accelX,
       accelY,
       accelZ,
       accelMagnitude: Math.round(accelMagnitude),
       derivedActivity,
+      motionLevel,
       timestamp: raw.timestamp || new Date().toISOString()
     }
   };

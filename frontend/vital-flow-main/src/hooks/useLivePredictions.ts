@@ -39,27 +39,12 @@ export function useLivePredictions() {
               heartRate: data.heart_rate,
               temperature: data.temperature,
               stress: data.stress_level,
-              spo2: data.spo2,
               activity: data.activity_status,
+              motionLevel: data.motion_level || (data.activity_status === "Active" ? "High" : data.activity_status === "Light Movement" ? "Moderate" : "Low"),
               healthScore: data.health_score,
               healthCategory: data.health_category,
               healthExplanation: data.health_explanation,
               healthRecommendations: data.health_recommendations || []
-            });
-          }
-
-          // Fire alerts based on risk
-          if (risk === "high") {
-            pushAlert({
-              type: "warning",
-              title: "Elevated glucose predicted",
-              message: `Predicted: ${glucose} mg/dL`,
-            });
-          } else if (risk === "low") {
-            pushAlert({
-              type: "critical",
-              title: "Low glucose predicted",
-              message: `Predicted: ${glucose} mg/dL`,
             });
           }
         });

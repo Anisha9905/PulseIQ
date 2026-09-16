@@ -13,8 +13,8 @@ export function HealthScoreCard() {
   const heartRate = useGlucoseStore((s) => s.heartRate);
   const temperature = useGlucoseStore((s) => s.temperature);
   const stress = useGlucoseStore((s) => s.stress);
-  const spo2 = useGlucoseStore((s) => s.spo2);
   const activity = useGlucoseStore((s) => s.activity);
+  const esp32Data = useGlucoseStore((s) => s.esp32Data);
   const confidence = useGlucoseStore((s) => s.confidence);
   const trend = useGlucoseStore((s) => {
     const readings = s.trend;
@@ -130,40 +130,39 @@ export function HealthScoreCard() {
         </div>
 
         {/* Vitals Grid — Connected to live ESP32 hardware and AI engine */}
-        <div className="mt-2.5 grid grid-cols-2 gap-2 border-t border-border/20 pt-2.5 sm:grid-cols-3">
+        <div className="mt-2.5 grid grid-cols-2 gap-2 border-t border-border/20 pt-2.5 sm:grid-cols-4">
           <VitalItem
             icon={Heart}
             label="Heart Rate"
-            value={heartRate > 0 ? `${heartRate} BPM` : "--"}
-            sub={sensorMode === "REAL_ESP32" ? "PPG Hardware" : "Simulated"}
+            value={
+              heartRate > 0
+                ? `${heartRate} BPM`
+                : sensorMode === "REAL_ESP32" && esp32Data?.state === "NO CONTACT"
+                ? "No Contact"
+                : "Unavailable"
+            }
+            sub={sensorMode === "REAL_ESP32" ? "PPG Hardware" : "Hardware"}
             status={heartRate > 100 || (heartRate < 50 && heartRate > 0) ? "warning" : "normal"}
-          />
-          <VitalItem
-            icon={Wind}
-            label="SpO₂"
-            value={`${spo2}%`}
-            sub={sensorMode === "REAL_ESP32" ? "ESP32 Sensor" : "Simulated"}
-            status={spo2 < 95 ? "warning" : "normal"}
           />
           <VitalItem
             icon={Thermometer}
             label="Skin Temp"
             value={`${temperature} °C`}
-            sub={sensorMode === "REAL_ESP32" ? "LM35 Hardware" : "Simulated"}
+            sub={sensorMode === "REAL_ESP32" ? "LM35 Hardware" : "LM35"}
             status={temperature > 37.5 || temperature < 35.5 ? "warning" : "normal"}
           />
           <VitalItem
             icon={Brain}
             label="Stress Level"
             value={stress}
-            sub={sensorMode === "REAL_ESP32" ? "GSR Hardware" : "Simulated"}
+            sub={sensorMode === "REAL_ESP32" ? "GSR Hardware" : "GSR"}
             status={stress === "high" || stress === "STRESSED" ? "warning" : "normal"}
           />
           <VitalItem
             icon={ActivityIcon}
             label="Activity"
-            value={activity}
-            sub={sensorMode === "REAL_ESP32" ? "MPU6050 Motion" : "Simulated"}
+            value={activity || "Stationary"}
+            sub={sensorMode === "REAL_ESP32" ? "MPU6050 Motion" : "MPU6050"}
             status="normal"
           />
           <VitalItem

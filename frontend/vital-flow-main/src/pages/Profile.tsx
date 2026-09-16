@@ -13,10 +13,17 @@ export default function Profile() {
   useRealtimeGlucose();
   const user = useGlucoseStore((s) => s.user);
   const updateUser = useGlucoseStore((s) => s.updateUser);
-  const connected = useGlucoseStore((s) => s.connected);
-  const setConnected = useGlucoseStore((s) => s.setConnected);
+  const esp32Status = useGlucoseStore((s) => s.esp32Status);
+  const esp32Data = useGlucoseStore((s) => s.esp32Data);
   const calibration = useGlucoseStore((s) => s.calibration);
   const confidence = useGlucoseStore((s) => s.confidence);
+
+  // Armband is strictly connected only when real ESP32 Wi-Fi telemetry is actively flowing (within last 15s)
+  const isArmbandConnected =
+    esp32Status === "CONNECTED" &&
+    esp32Data != null &&
+    esp32Data.timestamp != null &&
+    (Date.now() - new Date(esp32Data.timestamp).getTime() < 15000);
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({
@@ -148,31 +155,48 @@ export default function Profile() {
             className="rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8"
           >
             <div className="mb-2 flex items-center gap-2">
-              {connected ? <Wifi className="h-4 w-4 text-success" /> : <WifiOff className="h-4 w-4 text-destructive" />}
-              <h2 className="font-display text-lg font-semibold">Armband</h2>
+              {isArmbandConnected ? <Wifi className="h-4 w-4 text-emerald-500" /> : <WifiOff className="h-4 w-4 text-rose-500" />}
+              <h2 className="font-display text-lg font-semibold">PulseIQ Armband</h2>
             </div>
             <p className="text-xs text-muted-foreground">
-              {connected ? "Streaming continuous data" : "Signal lost — check your device"}
+              {isArmbandConnected ? "Wi-Fi Connected — Streaming live telemetry" : "Wi-Fi Disconnected — Waiting for ESP32 hardware packet"}
             </p>
 
             <div className="my-6 h-[200px] w-full">
-              <DeviceRing3D connected={connected} className="h-full w-full" />
+              <DeviceRing3D connected={isArmbandConnected} className="h-full w-full" />
             </div>
 
             <div className="space-y-3">
               <div className="flex items-center justify-between rounded-2xl border border-border bg-background/50 px-4 py-3">
-                <span className="text-xs text-muted-foreground">Status</span>
-                <span className={`flex items-center gap-1.5 text-xs font-semibold ${connected ? "text-success" : "text-destructive"}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-success animate-pulse" : "bg-destructive"}`} />
-                  {connected ? "Connected" : "Disconnected"}
+                <span className="text-xs text-muted-foreground">Hardware Wi-Fi Status</span>
+                <span className={`flex items-center gap-1.5 text-xs font-semibold ${isArmbandConnected ? "text-emerald-500" : "text-rose-500"}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${isArmbandConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+                  {isArmbandConnected ? "CONNECTED" : "DISCONNECTED"}
                 </span>
               </div>
-              <button
-                onClick={() => setConnected(!connected)}
-                className="w-full rounded-2xl border border-border bg-background/50 px-4 py-3 text-xs font-medium text-muted-foreground transition-smooth hover:bg-accent hover:text-foreground"
-              >
-                {connected ? "Simulate disconnect" : "Reconnect"}
-              </button>
+
+              <div className="rounded-2xl border border-border/50 bg-accent/20 p-3 space-y-1.5 text-xs font-mono">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Device Name:</span>
+                  <span className="font-semibold text-foreground">PulseIQ_ESP32</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Transport:</span>
+                  <span className="font-semibold text-foreground">Wi-Fi HTTP POST</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Endpoint:</span>
+                  <span className="font-semibold text-foreground text-[10px]">/api/v1/telemetry</span>
+                </div>
+                {esp32Data?.timestamp && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Last RX Packet:</span>
+                    <span className={`font-semibold ${isArmbandConnected ? "text-emerald-500" : "text-amber-500"}`}>
+                      {new Date(esp32Data.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </motion.section>
         </div>

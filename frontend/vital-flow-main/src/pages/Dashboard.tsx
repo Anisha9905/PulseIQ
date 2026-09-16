@@ -47,13 +47,13 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
+        {/* ESP32 Hardware Integration Card (Top Position) */}
         <motion.section {...fadeUp} transition={{ duration: 0.5, delay: 0.05 }} className="mb-6">
-          <HeroOrb />
+          <Esp32LiveCard />
         </motion.section>
 
-        {/* ESP32 Hardware Integration Card */}
-        <motion.section {...fadeUp} transition={{ duration: 0.5, delay: 0.08 }} className="mb-8">
-          <Esp32LiveCard />
+        <motion.section {...fadeUp} transition={{ duration: 0.5, delay: 0.08 }} className="mb-6">
+          <HeroOrb />
         </motion.section>
 
         <div className="grid gap-6 lg:grid-cols-3 items-start">

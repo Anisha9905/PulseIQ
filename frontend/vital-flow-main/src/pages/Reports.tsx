@@ -15,7 +15,7 @@ import { useGlucoseStore } from "@/store/glucoseStore";
 import { useRealtimeGlucose } from "@/hooks/useRealtimeGlucose";
 import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { generatePDFReport } from "@/lib/reportGenerator";
+import { generatePDFReport, generatePDFDataURI } from "@/lib/reportGenerator";
 import { CalibrationTrendChart } from "@/components/dashboard/CalibrationTrendChart";
 
 const fadeUp = { initial: { opacity: 0, y: 24 }, animate: { opacity: 1, y: 0 } };
@@ -81,15 +81,54 @@ export default function Reports() {
     };
   });
 
-  const temperature    = snapshot.temperature;
-  const stress         = snapshot.stress;
-  const activity       = snapshot.activity;
-  const healthScore    = snapshot.healthScore;
-  const healthCategory = snapshot.healthCategory;
-  const riskLevel      = snapshot.riskLevel;
+  const sensorMode      = useGlucoseStore((s: any) => s.sensorMode);
+  const esp32Data       = useGlucoseStore((s: any) => s.esp32Data);
+  const esp32Status     = useGlucoseStore((s: any) => s.esp32Status);
+  const liveHeartRate   = useGlucoseStore((s: any) => s.heartRate) || 0;
+  const liveTemperature = useGlucoseStore((s: any) => s.temperature) || 36.6;
+  const liveGsr         = useGlucoseStore((s: any) => s.gsr) || 1250;
+  const liveStress      = useGlucoseStore((s: any) => s.stress) || "low";
+  const liveActivity    = useGlucoseStore((s: any) => s.activity) || "Stationary";
+  const liveMotionLevel = useGlucoseStore((s: any) => s.motionLevel) || "Low";
+  const healthScore     = useGlucoseStore((s: any) => s.healthScore) || 92;
+  const healthCategory  = useGlucoseStore((s: any) => s.healthCategory) || "Optimal";
+  const riskLevel       = currentGlucose > 140 ? "High" : currentGlucose < 70 ? "High" : currentGlucose > 120 ? "Moderate" : "Low";
 
-  const spo2 = useGlucoseStore((s: any) => s.spo2) || 98;
-  const healthExplanation     = useGlucoseStore((s: any) => s.healthExplanation)     || "Your metabolic rate is operating efficiently.";
+  const isReal = sensorMode === "REAL_ESP32";
+  const isHardwareConnected = isReal && esp32Status === "CONNECTED" && esp32Data != null;
+
+  // Resolve active parameters based on mode (REAL_ESP32 vs SIMULATION)
+  const reportHeartRate = isReal
+    ? (isHardwareConnected ? (esp32Data.heartRate || 0) : 0)
+    : liveHeartRate;
+
+  const reportTemperature = isReal
+    ? (isHardwareConnected ? (esp32Data.temperature ?? 36.6) : 0)
+    : liveTemperature;
+
+  const reportGsr = isReal
+    ? (isHardwareConnected ? (esp32Data.gsr ?? 1250) : 0)
+    : liveGsr;
+
+  const reportStress = isReal
+    ? (isHardwareConnected
+        ? (esp32Data.state?.includes("STRESS") ? "high" : esp32Data.gsr > 2000 ? "high" : esp32Data.gsr > 800 ? "moderate" : "low")
+        : "unavailable")
+    : liveStress;
+
+  const reportActivity = isReal
+    ? (isHardwareConnected ? (esp32Data.derivedActivity || "Stationary") : "Disconnected")
+    : liveActivity;
+
+  const reportMotionLevel = isReal
+    ? (isHardwareConnected ? (esp32Data.motionLevel || "Low") : "--")
+    : liveMotionLevel;
+
+  const isHeartRateValid = isReal
+    ? (isHardwareConnected && esp32Data.heartRate > 0 && esp32Data.state !== "NO CONTACT")
+    : (liveHeartRate > 0);
+
+  const healthExplanation     = useGlucoseStore((s: any) => s.healthExplanation)     || "Your physiological sensors are actively monitoring your baseline.";
   const healthRecommendations = useGlucoseStore((s: any) => s.healthRecommendations) || [
     "Drink more water throughout the day",
     "Engage in mild activity post meals",
@@ -121,10 +160,63 @@ export default function Reports() {
     fetchEntries();
   }, []);
 
-  const heartRate = useGlucoseStore((s: any) => s.heartRate) || 72;
   const bmi = user && (user as any).weight && (user as any).height
     ? ((user as any).weight / Math.pow((user as any).height / 100, 2)).toFixed(1)
     : null;
+
+  const effectiveAlerts = useMemo(() => {
+    const list = [...alerts];
+
+    // High Glucose Risk Alert
+    if (currentGlucose > 140) {
+      if (!list.some((a) => a.id === "active-high-glucose")) {
+        list.unshift({
+          id: "active-high-glucose",
+          type: "warning",
+          title: "Elevated Glucose Warning (High Risk)",
+          message: `Personalized ML prediction indicates high glucose level at ${currentGlucose} mg/dL — exceeds 140 mg/dL upper boundary.`,
+          time: Date.now()
+        });
+      }
+      if (!list.some((a) => a.id === "active-glucose-trajectory")) {
+        list.push({
+          id: "active-glucose-trajectory",
+          type: "warning",
+          title: "Rising Glycemic Trajectory Warning",
+          message: `Continuous telemetric trend reflects upward glycemic trajectory (${currentGlucose} mg/dL). Monitor post-meal activity and fluid intake.`,
+          time: Date.now()
+        });
+      }
+    } 
+    
+    // Low Glucose Risk Alert
+    if (currentGlucose < 70) {
+      if (!list.some((a) => a.id === "active-low-glucose")) {
+        list.unshift({
+          id: "active-low-glucose",
+          type: "critical",
+          title: "Low Glucose Critical Alert (Hypoglycemia Risk)",
+          message: `Personalized ML prediction indicates low glucose level dropped to ${currentGlucose} mg/dL — below 70 mg/dL lower boundary.`,
+          time: Date.now()
+        });
+      }
+    }
+
+    // Skin Temperature Alert
+    if (liveTemperature > 37.2 || liveTemperature < 35.5) {
+      if (!list.some((a) => a.id === "active-high-temp")) {
+        list.push({
+          id: "active-high-temp",
+          type: "warning",
+          title: "Skin Temperature Variation Alert",
+          message: `LM35 thermal probe recorded skin temperature at ${liveTemperature} °C (Normal range: 36.1–37.2 °C).`,
+          time: Date.now()
+        });
+      }
+    }
+
+    return list;
+  }, [alerts, currentGlucose, liveTemperature]);
 
   const reportId    = useMemo(() => `PIQ-${Math.floor(100000 + Math.random() * 900000)}`, []);
   const generatedAt = new Date().toLocaleString([], { dateStyle: "long", timeStyle: "short" });
@@ -132,8 +224,14 @@ export default function Reports() {
   const handleDownloadPDF = () => {
     generatePDFReport({
       user, currentGlucose, trend: trendVal, healthScore, healthCategory,
-      healthExplanation, healthRecommendations, heartRate, temperature,
-      stress, spo2, activity, confidence, calibration, history, alerts,
+      healthExplanation, healthRecommendations,
+      heartRate: reportHeartRate,
+      temperature: reportTemperature,
+      stress: reportStress,
+      activity: reportActivity,
+      motionLevel: reportMotionLevel,
+      gsr: reportGsr,
+      confidence, calibration, history, alerts: effectiveAlerts,
       calibrationEntries: fbEntries,
     });
   };
@@ -224,7 +322,7 @@ export default function Reports() {
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <h2 className="font-display text-lg font-semibold">Glucose Trend — Last 24 Hours</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">Real-time readings from your sensor</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">Personalized ML model estimates & insights</p>
             </div>
             <TrendBadge trend={trendVal} />
           </div>
@@ -249,15 +347,43 @@ export default function Reports() {
           </div>
         </motion.section>
 
-        {/* Vitals */}
+        {/* Physiological Parameters (4 Cards) */}
         <motion.section {...fadeUp} transition={{ duration: 0.45, delay: 0.2 }}>
-          <h2 className="mb-3 font-display text-lg font-semibold">Physiological Parameters</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            <VitalCard icon={<Heart className="h-5 w-5 text-rose-500" />}       label="Heart Rate"   value="N/A"           unit=""   sub="Sensor not connected" />
-            <VitalCard icon={<Droplets className="h-5 w-5 text-sky-500" />}     label="SpO₂"         value="N/A"           unit=""   sub="PPG not connected" />
-            <VitalCard icon={<Thermometer className="h-5 w-5 text-orange-500" />} label="Skin Temp"  value={`${temperature}`} unit="°C" sub={temperature > 37.2 ? "Slightly elevated" : "Normal range"} />
-            <VitalCard icon={<Brain className="h-5 w-5 text-purple-500" />}     label="Stress Level" value={stress}        unit=""   sub="From sensor data" />
-            <VitalCard icon={<Zap className="h-5 w-5 text-amber-500" />}        label="Activity"     value={activity}      unit=""   sub="Current state" />
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-display text-lg font-semibold">Physiological Parameters</h2>
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/50">
+              {isReal ? (isHardwareConnected ? "Real ESP32 Telemetry" : "ESP32 Disconnected (--)") : "Simulated Demo Telemetry"}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <VitalCard 
+              icon={<Heart className="h-5 w-5 text-rose-500" />}       
+              label={`Heart Rate ${isReal ? "(GPIO 34)" : ""}`}   
+              value={isHeartRateValid ? `${reportHeartRate}` : isReal ? (isHardwareConnected ? "No Contact" : "--") : "No Signal"}           
+              unit={isHeartRateValid ? "BPM" : ""}   
+              sub={isReal ? (isHardwareConnected ? (isHeartRateValid ? "PPG Pulse Waveform" : "No Contact / Standby") : "Hardware Offline") : "Simulated Cardiac Stream"} 
+            />
+            <VitalCard 
+              icon={<Thermometer className="h-5 w-5 text-orange-500" />} 
+              label={`Skin Temp ${isReal ? "(GPIO 15)" : ""}`}  
+              value={isReal ? (isHardwareConnected ? `${reportTemperature}` : "--") : `${reportTemperature}`} 
+              unit={isReal && !isHardwareConnected ? "" : "°C"} 
+              sub={isReal ? (isHardwareConnected ? "LM35 Thermal Probe" : "Hardware Offline") : "Simulated Skin Temp"} 
+            />
+            <VitalCard 
+              icon={<Brain className="h-5 w-5 text-purple-500" />}     
+              label={`Stress Level ${isReal ? "(GPIO 13)" : ""}`} 
+              value={isReal ? (isHardwareConnected ? (reportStress.charAt(0).toUpperCase() + reportStress.slice(1)) : "--") : (reportStress.charAt(0).toUpperCase() + reportStress.slice(1))}        
+              unit=""   
+              sub={isReal ? (isHardwareConnected ? `GSR: ${reportGsr} ADC` : "Hardware Offline") : "Simulated GSR Stream"} 
+            />
+            <VitalCard 
+              icon={<Zap className="h-5 w-5 text-amber-500" />}        
+              label="Activity / Motion"     
+              value={isReal ? (isHardwareConnected ? reportActivity : "--") : reportActivity}      
+              unit=""   
+              sub={isReal ? (isHardwareConnected ? `Motion: ${reportMotionLevel}` : "Hardware Offline") : `Motion: ${reportMotionLevel} (Sim)`} 
+            />
           </div>
         </motion.section>
 
@@ -269,10 +395,10 @@ export default function Reports() {
             <p className="mb-5 text-sm text-muted-foreground">{healthExplanation}</p>
             <div className="space-y-3">
               {[
-                { icon: <Droplets className="h-4 w-4 text-primary" />,      text: `Current glucose: ${currentGlucose} mg/dL — trend is ${trendVal.toLowerCase()}.` },
-                { icon: <Thermometer className="h-4 w-4 text-orange-500" />, text: `Skin temperature at ${temperature} °C — ${temperature > 37.2 ? "slightly elevated." : "within normal range."}` },
-                { icon: <ShieldCheck className="h-4 w-4 text-success" />,    text: `${stats.inRange || 0}% of readings in the healthy range over last 24 hours.` },
-                { icon: <Brain className="h-4 w-4 text-purple-500" />,      text: `Stress level is ${stress} — may influence glucose variability.` },
+                { icon: <Droplets className="h-4 w-4 text-primary" />,      text: `Personalized Glucose Estimate: ${currentGlucose} mg/dL — trend is ${trendVal.toLowerCase()}.` },
+                { icon: <Thermometer className="h-4 w-4 text-orange-500" />, text: `LM35 Skin temperature: ${liveTemperature} °C — ${liveTemperature > 37.2 ? "slightly elevated." : "within normal range."}` },
+                { icon: <ShieldCheck className="h-4 w-4 text-success" />,    text: `${stats.inRange || 0}% of estimates in healthy range over last 24 hours.` },
+                { icon: <Brain className="h-4 w-4 text-purple-500" />,      text: `Estimated Stress Level (GSR): ${liveStress.toUpperCase()} — modulates prediction baseline.` },
               ].map((item, i) => (
                 <motion.div key={i} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 + i * 0.07 }}
                   className="flex gap-3 rounded-2xl bg-accent/30 p-3">
@@ -335,20 +461,20 @@ export default function Reports() {
 
           <motion.section {...fadeUp} transition={{ duration: 0.45, delay: 0.34 }}
             className="rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8">
-            <h2 className="mb-4 font-display text-lg font-semibold">Sensor Status</h2>
+            <h2 className="mb-4 font-display text-lg font-semibold">Sensor Hardware Sources</h2>
             <div className="space-y-2.5">
               {[
-                { name: "Heart Rate Sensor",       ok: false },
-                { name: "SpO₂ Sensor (PPG)",       ok: false },
-                { name: "Accelerometer (MPU6050)", ok: true  },
-                { name: "GSR Sensor",              ok: false },
-                { name: "PulseIQ Band",            ok: false },
+                { name: "Heart Rate Sensor",       source: "Heart Rate Sensor", ok: isHeartRateValid },
+                { name: "Skin Temperature Sensor", source: "LM35",              ok: true },
+                { name: "Galvanic Skin Response",  source: "GSR Sensor",        ok: true },
+                { name: "Motion & Accelerometer",   source: "MPU6050",           ok: true },
+                { name: "PulseIQ Hardware Unit",   source: "ESP32 Wi-Fi",       ok: esp32Status === "CONNECTED" },
               ].map((s) => (
                 <div key={s.name} className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{s.name}</span>
-                  <span className={`flex items-center gap-1 text-xs font-semibold ${s.ok ? "text-success" : "text-destructive"}`}>
-                    {s.ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-                    {s.ok ? "Connected" : "Offline"}
+                  <span className="text-muted-foreground font-medium">{s.name} <span className="text-xs text-primary">({s.source})</span></span>
+                  <span className={`flex items-center gap-1 text-xs font-semibold ${s.ok ? "text-success" : "text-amber-500"}`}>
+                    {s.ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Info className="h-3.5 w-3.5" />}
+                    {s.ok ? "Active" : "Standby"}
                   </span>
                 </div>
               ))}
@@ -366,14 +492,14 @@ export default function Reports() {
           className="rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8">
           <h2 className="mb-1 font-display text-lg font-semibold">Alerts &amp; Warnings</h2>
           <p className="mb-5 text-sm text-muted-foreground">Recent system-generated alerts</p>
-          {alerts.length === 0 ? (
+          {effectiveAlerts.length === 0 ? (
             <div className="flex items-center gap-3 rounded-2xl bg-success/10 p-4">
               <ShieldCheck className="h-5 w-5 text-success shrink-0" />
               <p className="text-sm font-medium text-success">No alerts detected. All readings within acceptable ranges.</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {alerts.map((alert) => (
+              {effectiveAlerts.map((alert) => (
                 <div key={alert.id} className={`flex items-start gap-3 rounded-2xl p-3.5 ${alert.type === "critical" ? "bg-destructive/10 border border-destructive/20" : "bg-warning/10 border border-warning/20"}`}>
                   <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${alert.type === "critical" ? "text-destructive" : "text-warning"}`} />
                   <div>
@@ -423,6 +549,7 @@ export default function Reports() {
       <AnimatePresence>
         {showPreview && (
           <PDFPreviewModal
+            key={showPreview ? "preview-open" : "preview-closed"}
             user={user}
             currentGlucose={currentGlucose}
             trendVal={trendVal}
@@ -432,12 +559,16 @@ export default function Reports() {
             healthCategory={healthCategory}
             healthExplanation={healthExplanation}
             healthRecommendations={healthRecommendations}
-            temperature={temperature}
-            stress={stress}
-            activity={activity}
+            heartRate={reportHeartRate}
+            isHeartRateValid={isHeartRateValid}
+            temperature={reportTemperature}
+            stress={reportStress}
+            activity={reportActivity}
+            motionLevel={reportMotionLevel}
+            gsr={reportGsr}
             confidence={confidence}
             calibration={calibration}
-            alerts={alerts}
+            alerts={effectiveAlerts}
             fbEntries={fbEntries}
             riskLevel={riskLevel}
             bmi={bmi}
@@ -455,58 +586,55 @@ export default function Reports() {
 // ── PDF Preview Modal ──────────────────────────────────────────────────────
 const PHASE_NAMES_PREVIEW = ["Morning", "Afternoon", "Evening", "Night"];
 
+// ── PDF Preview Modal ──────────────────────────────────────────────────────
 function PDFPreviewModal({ user, currentGlucose, trendVal, stats, history,
   healthScore, healthCategory, healthExplanation, healthRecommendations,
-  temperature, stress, activity, confidence, calibration, alerts,
+  heartRate, isHeartRateValid, temperature, stress, activity, motionLevel, gsr, confidence, calibration, alerts,
   fbEntries, riskLevel, bmi, reportId, generatedAt, onClose, onDownload }: any) {
 
-  // ── 24h chart: use real history filtered to last 24h ──────────────────────
-  const chart24h = useMemo(() => {
-    const cutoff = Date.now() - 24 * 3600_000;
-    return (history as { time: number; value: number }[])
-      .filter((r) => r.time >= cutoff)
-      .map((r) => ({
-        label: new Date(r.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        value: r.value,
-        time: r.time,
-      }));
-  }, [history]);
-
-  // ── 7-day calibration chart: same logic as CalibrationTrendChart ──────────
-  const calibChartData = useMemo(() => {
-    const data: { label: string; day: number; phaseName: string; value: number | null }[] = [];
-    for (let d = 1; d <= 7; d++) {
-      for (let p = 0; p < 4; p++) {
-        const match = (fbEntries as any[]).find(
-          (e) => e.day_number === d && e.phase === p
-        );
-        data.push({
-          label: `D${d} ${PHASE_NAMES_PREVIEW[p]}`,
-          day: d,
-          phaseName: PHASE_NAMES_PREVIEW[p],
-          value: match ? match.glucose_value : null,
-        });
-      }
+  // Snapshot the PDF Data URI ONCE on mount so real-time sensor updates don't reload/glitch the iframe!
+  const [pdfDataUri] = useState<string | null>(() => {
+    try {
+      const res = generatePDFDataURI({
+        user,
+        currentGlucose,
+        trend: trendVal,
+        healthScore,
+        healthCategory,
+        healthExplanation,
+        healthRecommendations,
+        heartRate,
+        temperature,
+        stress,
+        activity,
+        motionLevel,
+        gsr,
+        confidence,
+        calibration,
+        history,
+        alerts,
+        calibrationEntries: fbEntries,
+      });
+      return res.dataUri;
+    } catch (err) {
+      console.error("Failed to generate PDF Data URI for preview:", err);
+      return null;
     }
-    return data;
-  }, [fbEntries]);
-
-  const calibValues = calibChartData.map((d) => d.value).filter((v) => v !== null) as number[];
-  const calibStats = {
-    count: calibValues.length,
-    avg: calibValues.length ? Math.round(calibValues.reduce((a, b) => a + b, 0) / calibValues.length) : 0,
-    min: calibValues.length ? Math.min(...calibValues) : 0,
-    max: calibValues.length ? Math.max(...calibValues) : 0,
-    completion: Math.round((calibValues.length / 28) * 100),
-  };
-
-  const scrollRef = useRef<HTMLDivElement>(null);
+  });
 
   // Lock body scroll while open
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
+
+  const handlePrint = () => {
+    const iframe = document.getElementById("pdf-preview-frame") as HTMLIFrameElement;
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    }
+  };
 
   return (
     <>
@@ -517,360 +645,70 @@ function PDFPreviewModal({ user, currentGlucose, trendVal, stats, history,
         onClick={onClose}
       />
 
-      {/* Panel — slides in from right, covers dashboard width */}
-      <motion.div
-        initial={{ x: "100%", opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        exit={{ x: "100%", opacity: 0 }}
-        transition={{ type: "spring", stiffness: 320, damping: 32 }}
-        className="fixed inset-y-0 right-0 z-50 flex flex-col bg-[#f5f7fa] shadow-2xl"
-        style={{ width: "min(860px, 100vw)" }}
-      >
-        {/* Modal Toolbar */}
-        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3 shrink-0">
-          <div className="flex items-center gap-3">
-            <FileText className="h-5 w-5 text-blue-600" />
-            <div>
-              <p className="text-sm font-bold text-slate-800">PulseIQ Diagnostic Report</p>
-              <p className="text-xs text-slate-500">Report ID: {reportId}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={onDownload}
-              className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors">
-              <Download className="h-3.5 w-3.5" /> Download PDF
-            </button>
-            <button onClick={onClose}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 transition-colors">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Scrollable A4-style content */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-6">
-          <div className="mx-auto max-w-[780px] bg-white shadow-lg rounded-lg overflow-hidden" style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
-
-            {/* PDF Header */}
-            <div className="bg-[#1976d2] px-8 py-6 text-white">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xl font-bold tracking-tight">PulseIQ</p>
-                  <p className="mt-0.5 text-sm text-blue-200">AI-Based Non-Invasive Glucose Trend Prediction System</p>
-                  <p className="text-xs text-blue-300">Health Assessment Report</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold">Report ID: {reportId}</p>
-                  <p className="mt-0.5 text-xs text-blue-200">{generatedAt}</p>
-                  <span className={`mt-2 inline-block rounded px-2 py-0.5 text-xs font-bold ${riskLevel === "High" ? "bg-red-500" : riskLevel === "Moderate" ? "bg-orange-400" : "bg-green-500"}`}>
-                    {riskLevel} Risk
-                  </span>
-                </div>
+      {/* Screen-fitting Modal Container */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 lg:p-6 pointer-events-none">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 12 }}
+          transition={{ duration: 0.22, ease: "easeOut" }}
+          className="pointer-events-auto flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+        >
+          {/* Modal Toolbar */}
+          <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3 shrink-0 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-800">PulseIQ Diagnostic Report Preview</p>
+                <p className="text-xs text-slate-500">Report ID: {reportId} · Native A4 PDF Document</p>
               </div>
             </div>
-
-            <div className="p-8 space-y-7">
-
-              {/* 1. Patient Information */}
-              <PDFSection title="1. Patient Information">
-                <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-                  {[
-                    ["Patient Name",  user?.name    || "Not Available"],
-                    ["Patient ID",    user?.email   || "Not Available"],
-                    ["Age",           user?.age     ? `${user.age} years`       : "Not Available"],
-                    ["Gender",        user?.gender  ? user.gender                : "Not Available"],
-                    ["Height",        (user as any)?.height ? `${(user as any).height} cm` : "Not Available"],
-                    ["Weight",        (user as any)?.weight ? `${(user as any).weight} kg` : "Not Available"],
-                    ["BMI",           bmi            || "Not Available"],
-                    ["Contact",       user?.phone   || "Not Available"],
-                  ].map(([label, val]) => (
-                    <div key={label} className="flex gap-2">
-                      <span className="w-32 shrink-0 text-slate-500">{label}:</span>
-                      <span className="font-semibold text-slate-800">{val}</span>
-                    </div>
-                  ))}
-                </div>
-              </PDFSection>
-
-              {/* 2. Executive Summary */}
-              <PDFSection title="2. Executive Summary">
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: "Predicted Glucose", val: `${currentGlucose} mg/dL`, color: "#1976d2" },
-                    { label: "AI Health Score",   val: `${healthScore} / 100`,    color: "#0288d1" },
-                    { label: "Heart Rate",        val: "Not Available",            color: "#607D8B" },
-                    { label: "Oxygen (SpO₂)",     val: "Not Available",            color: "#607D8B" },
-                    { label: "Skin Temperature",  val: `${temperature} °C`,        color: "#333"    },
-                    { label: "Stress Level",      val: stress,                     color: "#333"    },
-                    { label: "Activity Level",    val: activity,                   color: "#333"    },
-                    { label: "Overall Status",    val: healthCategory,             color: "#2e7d32" },
-                    { label: "Risk Level",        val: riskLevel,                  color: riskLevel === "High" ? "#c62828" : riskLevel === "Moderate" ? "#ef6c00" : "#2e7d32" },
-                  ].map((c) => (
-                    <div key={c.label} className="rounded border border-slate-200 p-3" style={{ borderLeft: `3px solid ${c.color}` }}>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wide">{c.label}</p>
-                      <p className="mt-0.5 text-sm font-bold capitalize" style={{ color: c.color }}>{c.val}</p>
-                    </div>
-                  ))}
-                </div>
-              </PDFSection>
-
-              {/* 3. Glucose Trend Chart — real history from ML model */}
-              <PDFSection title="3. Glucose Trend (Last 24 Hours)">
-                <div className="mb-2 flex items-center gap-2">
-                  <TrendBadge trend={trendVal} />
-                  <span className="text-xs text-slate-500">{chart24h.length} readings from ML model</span>
-                </div>
-                <div className="h-56 w-full rounded border border-slate-100 bg-slate-50 p-2">
-                  {chart24h.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chart24h} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="prevGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%"   stopColor="#1976d2" stopOpacity={0.3} />
-                            <stop offset="100%" stopColor="#1976d2" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                        <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={50} />
-                        <YAxis domain={[60, 200]} tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={30} />
-                        <Tooltip
-                          contentStyle={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 11 }}
-                          formatter={(v: any) => [`${v} mg/dL`, "Glucose"]}
-                        />
-                        <ReferenceLine y={70}  stroke="#f59e0b" strokeDasharray="3 3" strokeOpacity={0.7} label={{ value: "Low (70)",  position: "insideTopRight", fontSize: 8, fill: "#f59e0b" }} />
-                        <ReferenceLine y={140} stroke="#ef4444" strokeDasharray="3 3" strokeOpacity={0.7} label={{ value: "High (140)", position: "insideTopRight", fontSize: 8, fill: "#ef4444" }} />
-                        <Area type="monotone" dataKey="value" stroke="#1976d2" strokeWidth={2} fill="url(#prevGrad)" dot={false} isAnimationActive={false} />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex h-full flex-col items-center justify-center gap-1 text-xs text-slate-400">
-                      <span>No readings in the last 24 hours yet.</span>
-                      <span className="text-[10px]">Data appears as the ML model pushes readings via WebSocket.</span>
-                    </div>
-                  )}
-                </div>
-                <div className="mt-2 flex flex-wrap gap-4 text-[10px] text-slate-500">
-                  <span>● <span className="text-blue-600">Blue line</span> = ML model predicted glucose</span>
-                  <span>— <span className="text-yellow-500">Yellow dashed</span> = Low threshold (70 mg/dL)</span>
-                  <span>— <span className="text-red-500">Red dashed</span> = High threshold (140 mg/dL)</span>
-                </div>
-              </PDFSection>
-
-              {/* 4. Physiological Parameters */}
-              <PDFSection title="4. Physiological Parameters">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-[#1976d2] text-white">
-                      <th className="px-3 py-2 text-left text-xs font-semibold">Parameter</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold">Value</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold">Status</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold">Normal Range</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { p: "Heart Rate",        v: "N/A",               s: "Not Available", r: "60–100 bpm",    even: true  },
-                      { p: "Oxygen (SpO₂)",     v: "N/A",               s: "Not Available", r: "95–100%",       even: false },
-                      { p: "Skin Temperature",  v: `${temperature} °C`, s: temperature > 37.2 ? "Elevated" : "Normal", r: "36.1–37.2 °C", even: true },
-                      { p: "Stress Level",      v: stress,              s: "—",             r: "Low / Moderate", even: false },
-                      { p: "Activity Level",    v: activity,            s: "—",             r: "—",             even: true  },
-                    ].map((row) => (
-                      <tr key={row.p} className={row.even ? "bg-white" : "bg-slate-50"}>
-                        <td className="px-3 py-2 text-slate-700">{row.p}</td>
-                        <td className="px-3 py-2 font-semibold text-slate-800 capitalize">{row.v}</td>
-                        <td className={`px-3 py-2 text-xs font-semibold capitalize ${row.s === "Not Available" ? "text-slate-400" : row.s === "Elevated" ? "text-red-600" : "text-green-700"}`}>{row.s}</td>
-                        <td className="px-3 py-2 text-xs text-slate-500">{row.r}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </PDFSection>
-
-              {/* 5. Glucose Statistics */}
-              <PDFSection title="5. Glucose Analysis">
-                <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-                  {[
-                    ["Current Predicted",   `${currentGlucose} mg/dL`],
-                    ["24h Average",         stats.avg ? `${stats.avg} mg/dL` : "Not Available"],
-                    ["Highest Recorded",    stats.max ? `${stats.max} mg/dL` : "Not Available"],
-                    ["Lowest Recorded",     stats.min ? `${stats.min} mg/dL` : "Not Available"],
-                    ["Time in Range",       stats.inRange ? `${stats.inRange}%` : "Not Available"],
-                    ["Predicted Trend",     trendVal],
-                  ].map(([label, val]) => (
-                    <div key={label} className="flex gap-2">
-                      <span className="w-40 shrink-0 text-slate-500">{label}:</span>
-                      <span className="font-semibold text-slate-800">{val}</span>
-                    </div>
-                  ))}
-                </div>
-              </PDFSection>
-
-              {/* 6. AI Insights */}
-              <PDFSection title="6. AI Health Insights">
-                <p className="mb-3 text-sm text-slate-600 italic">{healthExplanation}</p>
-                <ul className="space-y-2 text-sm text-slate-700">
-                  {[
-                    `Heart rate and oxygen saturation sensors are currently not connected; cardiovascular metrics unavailable.`,
-                    `Skin temperature recorded at ${temperature} °C — ${temperature > 37.2 ? "slightly elevated, monitor closely." : "within normal range."}`,
-                    `Glucose prediction shows a ${trendVal.toLowerCase()} trend at ${currentGlucose} mg/dL.`,
-                    `${stats.inRange || 0}% of 24h readings were within the healthy glucose range (70–140 mg/dL).`,
-                  ].map((ins, i) => <li key={i} className="flex gap-2"><span className="text-blue-600 font-bold">•</span>{ins}</li>)}
-                </ul>
-              </PDFSection>
-
-              {/* 7. Recommendations */}
-              <PDFSection title="7. Personalized Recommendations">
-                <div className="space-y-2">
-                  {[
-                    { cat: "Diet",            tip: healthRecommendations[0] || "Maintain a balanced meal plan and monitor post-meal glucose response." },
-                    { cat: "Physical Activity",tip: healthRecommendations[1] || "Incorporate light movement during the day." },
-                    { cat: "Hydration",        tip: healthRecommendations[2] || "Stay hydrated and keep fluid intake regular." },
-                    { cat: "Sleep",            tip: "Prioritize consistent sleep patterns to optimize metabolic function." },
-                    { cat: "Stress Management",tip: "Maintain a calm routine and engage in relaxation exercises." },
-                    { cat: "Lifestyle",        tip: "Avoid late-night exertion to stabilize morning glucose levels." },
-                  ].map((r) => (
-                    <div key={r.cat} className="flex gap-2 text-sm">
-                      <span className="w-36 shrink-0 font-bold text-slate-700">{r.cat}:</span>
-                      <span className="text-slate-600">{r.tip}</span>
-                    </div>
-                  ))}
-                </div>
-              </PDFSection>
-
-              {/* 8. Calibration — 7-day chart using real Firebase entries */}
-              <PDFSection title="8. 7-Day Calibration Trend">
-                {/* Stats row */}
-                <div className="mb-3 grid grid-cols-4 gap-2">
-                  {[
-                    { label: "Readings",   val: `${calibStats.count}/28` },
-                    { label: "Completion", val: `${calibStats.completion}%` },
-                    { label: "Average",    val: calibStats.avg ? `${calibStats.avg} mg/dL` : "—" },
-                    { label: "Status",     val: calibStats.count === 28 ? "Complete" : "Pending" },
-                  ].map((s) => (
-                    <div key={s.label} className="rounded border border-slate-200 bg-slate-50 p-2 text-center">
-                      <p className="text-[10px] text-slate-500">{s.label}</p>
-                      <p className="text-sm font-bold text-slate-800">{s.val}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Chart */}
-                <div className="h-52 w-full rounded border border-slate-100 bg-slate-50 p-2">
-                  {calibStats.count > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={calibChartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="calibLineGrad" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%"   stopColor="#1976d2" />
-                            <stop offset="100%" stopColor="#0288d1" />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                        <XAxis dataKey="label" tick={{ fontSize: 8, fill: "#94a3b8" }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={30} />
-                        <YAxis domain={[40, 200]} tick={{ fontSize: 8, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={28} />
-                        <Tooltip
-                          contentStyle={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 11 }}
-                          formatter={(v: any, _: any, props: any) => [
-                            v !== null ? `${v} mg/dL` : "No data",
-                            `Day ${props.payload.day} – ${props.payload.phaseName}`,
-                          ]}
-                        />
-                        <ReferenceLine y={70}  stroke="#f59e0b" strokeDasharray="3 3" strokeOpacity={0.6} />
-                        <ReferenceLine y={140} stroke="#ef4444" strokeDasharray="3 3" strokeOpacity={0.6} />
-                        <Line
-                          type="monotone"
-                          dataKey="value"
-                          stroke="url(#calibLineGrad)"
-                          strokeWidth={2.5}
-                          dot={{ r: 3, fill: "#fff", stroke: "#1976d2", strokeWidth: 2 }}
-                          activeDot={{ r: 5, fill: "#1976d2" }}
-                          connectNulls={false}
-                          isAnimationActive={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex h-full flex-col items-center justify-center gap-1 text-xs text-slate-400">
-                      <span>No calibration entries yet.</span>
-                      <span className="text-[10px]">Add glucose readings via "Add Details" to populate this chart.</span>
-                    </div>
-                  )}
-                </div>
-                <div className="mt-2 flex flex-wrap gap-4 text-[10px] text-slate-500">
-                  <span>Each point = one manual glucose entry (day × phase slot)</span>
-                  <span>28 slots total: 7 days × 4 phases (Morning / Afternoon / Evening / Night)</span>
-                </div>
-
-                {/* Progress bars */}
-                <div className="mt-4 space-y-2">
-                  <div>
-                    <div className="flex justify-between text-xs text-slate-500 mb-1"><span>Calibration Quality</span><span>{calibration}%</span></div>
-                    <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden"><div className="h-full rounded-full bg-blue-600" style={{ width: `${calibration}%` }} /></div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-xs text-slate-500 mb-1"><span>AI Confidence</span><span>{confidence}%</span></div>
-                    <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden"><div className="h-full rounded-full bg-green-600" style={{ width: `${confidence}%` }} /></div>
-                  </div>
-                </div>
-              </PDFSection>
-
-              {/* 9. Sensor Status */}
-              <PDFSection title="9. Sensor Status">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-[#1976d2] text-white">
-                      <th className="px-3 py-2 text-left text-xs font-semibold">Sensor</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { name: "Heart Rate Sensor",         ok: false },
-                      { name: "SpO₂ Sensor (PPG)",         ok: false },
-                      { name: "MPU6050 (Accelerometer)",   ok: true  },
-                      { name: "GSR Sensor",                ok: false },
-                      { name: "PulseIQ Band",              ok: false },
-                    ].map((s, i) => (
-                      <tr key={s.name} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                        <td className="px-3 py-2 text-slate-700">{s.name}</td>
-                        <td className={`px-3 py-2 text-xs font-bold ${s.ok ? "text-green-700" : "text-red-600"}`}>{s.ok ? "● Connected" : "● Disconnected"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </PDFSection>
-
-              {/* 10. Alerts */}
-              <PDFSection title="10. Alerts &amp; Warnings">
-                {alerts.length === 0 ? (
-                  <div className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-                    ✔ No abnormal physiological readings requiring immediate attention were detected.
-                  </div>
-                ) : alerts.map((a: any) => (
-                  <div key={a.id} className={`mb-2 rounded border p-3 text-sm ${a.type === "critical" ? "border-red-200 bg-red-50 text-red-800" : "border-orange-200 bg-orange-50 text-orange-800"}`}>
-                    <strong>{a.title}:</strong> {a.message}
-                  </div>
-                ))}
-              </PDFSection>
-
-              {/* 11. Disclaimer */}
-              <div className="rounded border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 italic">
-                <strong className="not-italic text-slate-700">Disclaimer:</strong> This report has been automatically generated by the PulseIQ AI-Based Non-Invasive Glucose Trend Prediction System using physiological sensor data and machine learning algorithms. It is intended for health monitoring, research, and educational purposes only. This report is not a substitute for professional medical diagnosis, treatment, or clinical decision-making. Users should consult qualified healthcare professionals before making any medical decisions.
-              </div>
-
-            </div>
-
-            {/* PDF Footer */}
-            <div className="flex items-center justify-between border-t border-slate-200 px-8 py-4 text-xs text-slate-400">
-              <span>Report ID: {reportId} · Generated {generatedAt}</span>
-              <span>PulseIQ Health Monitoring System</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
+              >
+                <Printer className="h-3.5 w-3.5" /> Print
+              </button>
+              <button
+                onClick={onDownload}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity shadow-soft"
+              >
+                <Download className="h-3.5 w-3.5" /> Export PDF
+              </button>
+              <button
+                onClick={onClose}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           </div>
-        </div>
-      </motion.div>
+
+          {/* Embedded PDF Iframe */}
+          <div className="flex-1 bg-slate-900/10 p-2 sm:p-4 overflow-hidden">
+            {pdfDataUri ? (
+              <iframe
+                id="pdf-preview-frame"
+                src={pdfDataUri}
+                title="PulseIQ PDF Diagnostic Report Preview"
+                className="h-full w-full rounded-2xl border border-slate-200 bg-white shadow-xl"
+              />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-500">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm font-medium">Compiling PDF Diagnostic Report...</p>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </div>
     </>
   );
 }
+
 
 // ── Helper sub-components ──────────────────────────────────────────────────
 

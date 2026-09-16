@@ -61,13 +61,15 @@ interface GlucoseStore {
     accelZ: number;
     accelMagnitude?: number;
     derivedActivity?: string;
+    motionLevel?: string;
     timestamp: string;
   } | null;
   heartRate: number;
   temperature: number;
+  gsr: number;
   stress: string;
-  spo2: number;
   activity: string;
+  motionLevel: string;
   healthScore: number;
   healthCategory: string;
   healthExplanation: string;
@@ -147,14 +149,15 @@ export const useGlucoseStore = create<GlucoseStore>()(
       entries: [],
       user: null,
       onboardingComplete: false,
-      sensorMode: "SIMULATION",
+      sensorMode: "REAL_ESP32",
       esp32Status: "DISCONNECTED",
       esp32Data: null,
       heartRate: 75,
       temperature: 36.6,
+      gsr: 1250,
       stress: "low",
-      spo2: 98,
-      activity: "sitting",
+      activity: "Stationary",
+      motionLevel: "Low",
       healthScore: 92,
       healthCategory: "Excellent",
       healthExplanation: "All physiological systems are operating within optimal limits.",
@@ -174,10 +177,13 @@ export const useGlucoseStore = create<GlucoseStore>()(
           const nextHistory = [...s.history, reading].slice(-2016); // keep max ~7 days at 30-min intervals
           return { trend: nextTrend, history: nextHistory, current: value, state: classify(value), lastSignal: now };
         }),
-      pushAlert: (a) =>
+      pushAlert: (a) => {
+        const id = crypto.randomUUID();
+        const time = Date.now();
         set((s) => ({
-          alerts: [{ ...a, id: crypto.randomUUID(), time: Date.now() }, ...s.alerts].slice(0, 5),
-        })),
+          alerts: [{ ...a, id, time }, ...s.alerts.filter((item) => item.title !== a.title)].slice(0, 20),
+        }));
+      },
       dismissAlert: (id) => set((s) => ({ alerts: s.alerts.filter((a) => a.id !== id) })),
       setCalibration: (calibration) => set({ calibration }),
       setConfidence: (confidence) => set({ confidence }),

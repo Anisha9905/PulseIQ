@@ -19,6 +19,7 @@ backend/.env
 frontend/vital-flow-main/.env
 
 # Local machine learning models
+models/
 backend/models/*.ubj
 backend/models/*.json
 

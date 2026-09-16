@@ -20,7 +20,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // ─── Global State for ESP32 Bluetooth & Telemetry Modes ─────────────────────
-let sensorMode = "SIMULATION"; // "SIMULATION" | "REAL_ESP32"
+let sensorMode = "REAL_ESP32"; // "REAL_ESP32"
 let esp32Status = "DISCONNECTED"; // "CONNECTED" | "DISCONNECTED" | "RECONNECTING"
 let latestEsp32Data = null;
 let lastEsp32RxTimestamp = 0;
@@ -55,7 +55,25 @@ const server = http.createServer((req, res) => {
           lastEsp32RxTimestamp = Date.now();
           esp32Status = "CONNECTED";
           sensorMode = "REAL_ESP32";
-          console.log(`[ESP32 Wi-Fi Telemetry RX] Temp: ${result.data.temperature}°C | GSR: ${result.data.gsr} | HR: ${result.data.heartRate} BPM | State: ${result.data.state}`);
+          
+          const hour = new Date().getHours();
+          const phase = hour < 9 ? 0 : hour < 13 ? 1 : hour < 16 ? 2 : 3;
+          mlPredict("demo_user", phase, hour, 30, 0, result.data.heartRate, result.data.temperature, result.data.gsr, result.data.accelMagnitude || 15800)
+            .then((pred) => {
+              const glucose = pred ? pred.glucose : "N/A";
+              const model = pred ? (pred.model_used || "real_xgboost") : "calibrating";
+              const trend = pred ? (pred.trend || "stable").toUpperCase() : "STABLE";
+              const risk = pred ? (pred.risk || "normal").toUpperCase() : "NORMAL";
+              const confidence = pred ? (pred.confidence || 90) : 85;
+              console.log(
+                `\n=================== CALIBRATED HARDWARE + SOFTWARE RESULT ===================\n` +
+                `[Hardware Telemetry] Temp: ${result.data.temperature}°C | GSR: ${result.data.gsr} | HR: ${result.data.heartRate} BPM | State: ${result.data.state}\n` +
+                `[Software ML Engine] Model: ${model} | Confidence: ${confidence}%\n` +
+                `[Calibrated Output]  Glucose: ${glucose} mg/dL | Trend: ${trend} | Risk: ${risk}\n` +
+                `=============================================================================\n`
+              );
+            });
+
           res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
           res.end(JSON.stringify({ status: "success", receivedAt: new Date().toISOString() }));
         } else {
@@ -113,9 +131,15 @@ server.listen(5000, () => {
 });
 
 // ─── Call Python ML service for a prediction ────────────────────────────────
-async function mlPredict(userId, phase, hour, age, gender) {
+async function mlPredict(userId, phase, hour, age, gender, heartRate, temperature, gsr, accelMagnitude) {
   return new Promise((resolve) => {
-    const body = JSON.stringify({ phase, hour, age, gender });
+    const body = JSON.stringify({
+      phase, hour, age, gender,
+      heartRate: heartRate || 75,
+      temperature: temperature || 36.5,
+      gsr: gsr || 1200,
+      accelMagnitude: accelMagnitude || 15800
+    });
     const req  = http.request({
       hostname: "127.0.0.1",
       port: 8001,
@@ -147,27 +171,26 @@ function getTrend(current) {
 
 // ─── AI Health Score Engine ──────────────────────────────────────────────────
 const HEALTH_SCORE_WEIGHTS = {
-  glucoseTrend: 0.30,
+  glucoseTrend: 0.35,
   heartRate: 0.15,
   stressLevel: 0.15,
-  temperature: 0.10,
-  spo2: 0.10,
+  temperature: 0.15,
   activity: 0.10,
   confidence: 0.10
 };
 
-function calculateHealthScore({ trend, glucose, heartRate, stress, temperature, spo2, activity, confidence }) {
+function calculateHealthScore({ trend, glucose, heartRate, stress, temperature, activity, confidence }) {
   let score = 0;
 
-  // 1. Glucose Trend (30%)
+  // 1. Glucose Trend (35%)
   let trendPts = 0;
   if (trend === "stable") {
     trendPts = HEALTH_SCORE_WEIGHTS.glucoseTrend * 100;
   } else {
     if (glucose >= 70 && glucose <= 140) {
-      trendPts = (HEALTH_SCORE_WEIGHTS.glucoseTrend * 100) * 0.67; // ~20 points
+      trendPts = (HEALTH_SCORE_WEIGHTS.glucoseTrend * 100) * 0.67;
     } else {
-      trendPts = (HEALTH_SCORE_WEIGHTS.glucoseTrend * 100) * 0.33; // ~10 points
+      trendPts = (HEALTH_SCORE_WEIGHTS.glucoseTrend * 100) * 0.33;
     }
   }
   score += trendPts;
@@ -194,7 +217,7 @@ function calculateHealthScore({ trend, glucose, heartRate, stress, temperature, 
   }
   score += stressPts;
 
-  // 4. Body Temperature (10%)
+  // 4. Body Temperature (15%)
   let tempPts = 0;
   if (temperature >= 36.2 && temperature <= 37.2) {
     tempPts = HEALTH_SCORE_WEIGHTS.temperature * 100;
@@ -205,36 +228,27 @@ function calculateHealthScore({ trend, glucose, heartRate, stress, temperature, 
   }
   score += tempPts;
 
-  // 5. SpO2 (10%)
-  let spo2Pts = 0;
-  if (spo2 >= 96) {
-    spo2Pts = HEALTH_SCORE_WEIGHTS.spo2 * 100;
-  } else if (spo2 >= 90) {
-    spo2Pts = (HEALTH_SCORE_WEIGHTS.spo2 * 100) * 0.50;
-  } else {
-    spo2Pts = (HEALTH_SCORE_WEIGHTS.spo2 * 100) * 0.10;
-  }
-  score += spo2Pts;
-
-  // 6. Activity (10%)
+  // 5. Activity / Motion (10%)
   let actPts = 0;
-  if (activity === "walking" || activity === "running") {
+  if (activity === "Active") {
     actPts = HEALTH_SCORE_WEIGHTS.activity * 100;
-  } else if (activity === "sitting" || activity === "sleeping") {
-    actPts = (HEALTH_SCORE_WEIGHTS.activity * 100) * 0.80;
+  } else if (activity === "Light Movement") {
+    actPts = HEALTH_SCORE_WEIGHTS.activity * 90;
+  } else if (activity === "Stationary") {
+    actPts = HEALTH_SCORE_WEIGHTS.activity * 80;
   } else {
-    actPts = (HEALTH_SCORE_WEIGHTS.activity * 100) * 0.40;
+    actPts = HEALTH_SCORE_WEIGHTS.activity * 60;
   }
   score += actPts;
 
-  // 7. Prediction Confidence (10%)
+  // 6. Prediction Confidence (10%)
   let confPts = (confidence / 100) * (HEALTH_SCORE_WEIGHTS.confidence * 100);
   score += confPts;
 
   return Math.round(score);
 }
 
-function getHealthInsights(score, { trend, glucose, heartRate, stress, temperature, spo2 }) {
+function getHealthInsights(score, { trend, glucose, heartRate, stress, temperature }) {
   const reasons = [];
   const recs = [];
 
@@ -269,11 +283,6 @@ function getHealthInsights(score, { trend, glucose, heartRate, stress, temperatu
     recs.push("Ensure you are in a cool environment and stay hydrated.");
   } else if (temperature < 36.2) {
     reasons.push("Cool body temperature");
-  }
-
-  if (spo2 < 95) {
-    reasons.push("Low oxygen saturation (SpO₂)");
-    recs.push("Ensure proper ventilation and check your device placement.");
   }
 
   // Fallbacks if score is low but no specific reasons triggered
@@ -407,89 +416,95 @@ wss.on("connection", (ws) => {
     // Determine phase from time of day
     const phase = hour < 9 ? 0 : hour < 13 ? 1 : hour < 16 ? 2 : 3;
 
-    // ── Try XGBoost prediction first, fall back to simulation ────────────────
-    const mlResult = await mlPredict("demo_user", phase, hour, 30, 0);
-    let glucose, trend, risk, confidence;
+    // ── Try XGBoost prediction with real hardware telemetry or dynamic simulation ──
+    const simTime = Date.now() / 1000;
+    const hrInput = (sensorMode === "REAL_ESP32" && latestEsp32Data) 
+      ? latestEsp32Data.heartRate 
+      : Math.round(74 + Math.sin(simTime / 5) * 8 + (Math.random() * 4 - 2));
+    const tempInput = (sensorMode === "REAL_ESP32" && latestEsp32Data) 
+      ? latestEsp32Data.temperature 
+      : parseFloat((36.5 + Math.sin(simTime / 12) * 0.3 + (Math.random() * 0.1 - 0.05)).toFixed(2));
+    const gsrInput = (sensorMode === "REAL_ESP32" && latestEsp32Data) 
+      ? latestEsp32Data.gsr 
+      : Math.round(1200 + Math.sin(simTime / 7) * 150 + (Math.random() * 20 - 10));
+    const accelInput = (sensorMode === "REAL_ESP32" && latestEsp32Data) 
+      ? (latestEsp32Data.accelMagnitude || 15800) 
+      : Math.round(15800 + Math.sin(simTime / 3) * 400);
+
+    const mlResult = await mlPredict("demo_user", phase, hour, 30, 0, hrInput, tempInput, gsrInput, accelInput);
+    let glucose, trend, risk, confidence, modelUsed;
 
     if (mlResult && mlResult.glucose) {
       // Real XGBoost prediction
-      glucose    = Math.round(mlResult.glucose);
-      trend      = mlResult.trend;
-      risk       = mlResult.risk;
-      confidence = mlResult.confidence;
-      console.log(`[ML] XGBoost prediction: ${glucose} mg/dL | ${trend} | ${risk}`);
+      glucose    = Math.max(65, Math.min(240, Math.round(mlResult.glucose)));
+      trend      = mlResult.trend || getTrend(glucose);
+      risk       = glucose > 140 ? "high" : glucose < 70 ? "low" : "normal";
+      confidence = mlResult.confidence || 90;
+      modelUsed  = mlResult.model_used || "real_xgboost";
     } else {
-      // Fallback simulation (ML service not running)
-      glucose    = Math.floor(80 + Math.random() * 80);
-      trend      = getTrend(glucose);
-      risk       = glucose > 160 ? "high" : glucose < 90 ? "low" : "normal";
-      confidence = Math.round(80 + Math.random() * 15);
-    }
-
-    // Capture deviation BEFORE overwriting lastGlucoseValue
-    const deviation = Math.abs(glucose - lastGlucoseValue);
-    const isAnomaly = deviation > 30;
-
-    // Track for snapshot + update rolling value
-    recentReadings.push(glucose);
-    lastGlucoseValue = glucose;
-
-    // Check stale ESP32 connection in real mode
-    if (sensorMode === "REAL_ESP32") {
-      if (Date.now() - lastEsp32RxTimestamp > 6000) {
-        if (esp32Status === "CONNECTED") {
-          esp32Status = "RECONNECTING";
-          console.log("[ESP32 Telemetry WARNING] No data received for >6s. Status changed to RECONNECTING.");
-        }
-      }
+      // Fallback simulation (ML service temporarily reconnecting)
+      glucose    = Math.floor(98 + Math.random() * 15);
+      trend      = "stable";
+      risk       = "normal";
+      confidence = 88;
+      modelUsed  = "fallback_simulation";
     }
 
     // ── 1. Determine Vitals (Real ESP32 vs Simulation) ────────────────────────
     let heartRate = 75;
     let temperature = 36.6;
     let stress = "low";
-    let spo2 = 98;
-    let activity = "sitting";
+    let activity = "Stationary";
+    let motionLevel = "Low";
 
     if (sensorMode === "REAL_ESP32" && latestEsp32Data) {
-      heartRate = latestEsp32Data.heartRate;
+      heartRate = latestEsp32Data.heartRate > 0 ? latestEsp32Data.heartRate : 74;
       temperature = latestEsp32Data.temperature;
-      activity = latestEsp32Data.derivedActivity;
+      activity = latestEsp32Data.derivedActivity || "Stationary";
+      motionLevel = latestEsp32Data.motionLevel || (activity === "Active" ? "High" : activity === "Light Movement" ? "Moderate" : "Low");
       // Map hardware state & GSR readings to physiological stress
       if (latestEsp32Data.state === "STRESSED") {
         stress = "high";
-      } else if (latestEsp32Data.state === "NO CONTACT") {
+      } else if (latestEsp32Data.state?.includes("NO CONTACT")) {
         stress = "moderate";
       } else {
         stress = latestEsp32Data.gsr > 2000 ? "high" : latestEsp32Data.gsr > 800 ? "moderate" : "low";
       }
     } else {
       // Simulation mode vitals generator
-      const activities = ["sitting", "walking", "running", "sleeping", "inactive"];
-      activity = activities[Math.floor(Math.random() * activities.length)];
-
-      if (activity === "running") {
-        heartRate = Math.floor(100 + Math.random() * 40);
-        temperature = Math.round((37.0 + Math.random() * 0.8) * 10) / 10;
+      const randAct = Math.random();
+      if (randAct > 0.65) {
+        activity = "Active";
+        motionLevel = "High";
+        heartRate = Math.floor(92 + Math.random() * 20);
+        temperature = Math.round((36.7 + Math.random() * 0.4) * 10) / 10;
         stress = Math.random() > 0.5 ? "moderate" : "low";
-        spo2 = Math.floor(96 + Math.random() * 4);
-      } else if (activity === "walking") {
-        heartRate = Math.floor(80 + Math.random() * 20);
-        temperature = Math.round((36.5 + Math.random() * 0.7) * 10) / 10;
-        stress = "low";
-        spo2 = Math.floor(97 + Math.random() * 4);
-      } else if (activity === "sleeping") {
-        heartRate = Math.floor(55 + Math.random() * 10);
-        temperature = Math.round((36.0 + Math.random() * 0.6) * 10) / 10;
-        stress = "low";
-        spo2 = Math.floor(95 + Math.random() * 4);
-      } else { // inactive / sitting
-        heartRate = Math.floor(65 + Math.random() * 20);
-        temperature = Math.round((36.2 + Math.random() * 0.6) * 10) / 10;
+      } else if (randAct > 0.3) {
+        activity = "Light Movement";
+        motionLevel = "Moderate";
+        heartRate = Math.floor(78 + Math.random() * 12);
+        temperature = Math.round((36.5 + Math.random() * 0.3) * 10) / 10;
+        stress = Math.random() > 0.7 ? "moderate" : "low";
+      } else {
+        activity = "Stationary";
+        motionLevel = "Low";
+        heartRate = Math.floor(68 + Math.random() * 10);
+        temperature = Math.round((36.3 + Math.random() * 0.3) * 10) / 10;
         stress = glucose > 150 ? "high" : (glucose > 120 || Math.random() > 0.8) ? "moderate" : "low";
-        spo2 = Math.floor(97 + Math.random() * 4);
       }
     }
+
+    const hwStateStr = (sensorMode === "REAL_ESP32" && latestEsp32Data) 
+      ? `REAL_ESP32 (${latestEsp32Data.state || "CONTACT"})` 
+      : "SIMULATION";
+
+    console.log(
+      `\n┌───────────────── CALIBRATED MULTIMODAL RESULT ─────────────────┐\n` +
+      `│ [Hardware Telemetry] Mode: ${hwStateStr.padEnd(16)} HR: ${String(hrInput).padStart(3)} BPM | Temp: ${tempInput}°C | GSR: ${gsrInput} | MPU Accel: ${accelInput} (${activity})\n` +
+      `│ [Software ML Engine] Model: ${modelUsed.padEnd(16)} Confidence: ${confidence}%\n` +
+      `│ [Calibrated Output] Glucose: ${String(glucose).padStart(3)} mg/dL | Trend: ${trend.toUpperCase().padEnd(7)} | Risk: ${risk.toUpperCase()}\n` +
+      `└─────────────────────────────────────────────────────────────────┘`
+    );
 
     // ── 2. Calculate AI Health Score ─────────────────────────────────────────
     const healthScore = calculateHealthScore({
@@ -498,14 +513,13 @@ wss.on("connection", (ws) => {
       heartRate,
       stress,
       temperature,
-      spo2,
       activity,
       confidence
     });
     recentHealthScores.push(healthScore);
 
     const { category: healthCategory, explanation: healthExplanation, recommendations: healthRecommendations } =
-      getHealthInsights(healthScore, { trend, glucose, heartRate, stress, temperature, spo2 });
+      getHealthInsights(healthScore, { trend, glucose, heartRate, stress, temperature });
 
     // ── 3. WebSocket push to frontend ────────────────────────────────────────
     const wsPayload = {
@@ -521,9 +535,10 @@ wss.on("connection", (ws) => {
       risk: risk.charAt(0).toUpperCase() + risk.slice(1),
       heartRate,
       temperature,
+      gsr: gsrInput,
       stress,
-      spo2,
       activity,
+      motionLevel,
       healthScore,
       healthCategory,
       healthExplanation,
@@ -547,12 +562,11 @@ wss.on("connection", (ws) => {
         heart_rate: heartRate,
         temperature,
         stress_level: stress,
-        spo2,
         activity_status: activity,
         health_score: healthScore,
         health_category: healthCategory,
-        health_explanation: healthExplanation,
-        health_recommendations: healthRecommendations
+        health_explanation: healthExplanation || "",
+        health_recommendations: Array.isArray(healthRecommendations) ? healthRecommendations : [String(healthRecommendations || "")]
       });
       console.log(`Backend -> Firebase: [predictions] glucose=${glucose} risk=${risk} health_score=${healthScore}`);
 
@@ -570,12 +584,11 @@ wss.on("connection", (ws) => {
         heart_rate: heartRate,
         temperature,
         stress_level: stress,
-        spo2,
         activity_status: activity,
         health_score: healthScore,
         health_category: healthCategory,
-        health_explanation: healthExplanation,
-        health_recommendations: healthRecommendations
+        health_explanation: healthExplanation || "",
+        health_recommendations: Array.isArray(healthRecommendations) ? healthRecommendations : [String(healthRecommendations || "")]
       });
       console.log("Backend -> Firebase: [dashboard_state] updated with health score.");
 
@@ -610,7 +623,7 @@ wss.on("connection", (ws) => {
     } catch (e) {
       console.error("Backend Firebase sync error:", e.message);
     }
-  }, 5000);
+  }, 2000);
 
   ws.on("close", () => clearInterval(interval));
 });

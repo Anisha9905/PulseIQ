@@ -53,7 +53,11 @@ export default function Calibration() {
     for (let day = 1; day <= 7; day++) {
       for (let phase = 0; phase < 4; phase++) {
         const glucose = Number(values[`${day}-${phase}`]);
-        entries.push({ day, phase, glucose, age, gender });
+        const hr = phase === 0 ? 68 : phase === 1 ? 74 : phase === 2 ? 86 : 96;
+        const temp = phase === 0 ? 36.4 : phase === 1 ? 36.5 : phase === 2 ? 36.8 : 37.0;
+        const gsr = phase === 0 ? 950 : phase === 1 ? 1150 : phase === 2 ? 1450 : 1650;
+        const accel = phase === 3 ? 18500 : 15800;
+        entries.push({ day, phase, glucose, age, gender, heart_rate: hr, temperature: temp, gsr: gsr, accel_mag: accel });
         try {
           await addDoc(collection(db, "historical_glucose_entries"), {
             user_id:      uid,
