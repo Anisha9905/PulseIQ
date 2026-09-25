@@ -78,7 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <ThemeToggle />
 
             {/* User Account Chip */}
-            <div className="flex items-center gap-2.5 rounded-2xl border border-border/80 bg-white dark:bg-[#1E293B] pl-2 pr-1.5 py-1 shadow-sm">
+            <div className="flex items-center gap-2.5 rounded-2xl border border-border/80 bg-white dark:bg-[#1E293B] pl-2 pr-1.5 py-1 shadow-sm transition-all duration-300 hover:shadow-soft">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10 text-xs font-bold text-primary ring-1 ring-primary/20">
                 {user?.avatar ? (
                   <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
@@ -172,10 +172,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </AnimatePresence>
       </header>
 
-      {/* Main Content Area — 100% Full Width (No Left Sidebar Offset) */}
+      {/* Main Content Area with Fluid Motion Page Transitions */}
       <div className="flex-1 w-full min-h-screen">
-        {children}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 8, scale: 0.995 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.995 }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
       </div>
+
       <AlertsStack />
     </InteractiveGradientBackground>
   );

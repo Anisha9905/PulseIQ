@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Loader2, Upload, Check, LogIn, UserPlus } from "lucide-react";
+import { ArrowRight, Loader2, Upload, Check, LogIn, UserPlus, Activity } from "lucide-react";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, getDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -43,6 +43,23 @@ export default function Login() {
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
+
+  // ── Googly eye mouse tracking ──────────────────────────────────────────────
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  const handleDoctorMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const dx = (e.clientX - centerX) / (rect.width / 2);
+    const dy = (e.clientY - centerY) / (rect.height / 2);
+    setMousePos({
+      x: Math.max(-1, Math.min(1, dx)),
+      y: Math.max(-1, Math.min(1, dy))
+    });
+  };
+
+  const handleDoctorMouseLeave = () => setMousePos({ x: 0, y: 0 });
 
   const totalSteps = 4;
 
@@ -226,6 +243,9 @@ export default function Login() {
             transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
             className="order-2 relative flex items-center justify-center lg:order-1 lg:col-span-6 xl:col-span-7"
           >
+            {/* Soft Ambient Glow Aura behind doctors */}
+            <div className="absolute inset-0 m-auto h-[420px] w-[420px] rounded-full bg-primary/15 blur-3xl dark:bg-primary/25 pointer-events-none transition-all duration-700 group-hover:scale-105 group-hover:bg-primary/25" />
+
             {/* 3D Orb / Avatar */}
             <div className="absolute inset-0 z-0 flex items-center justify-center opacity-60">
               {showAvatar ? (
