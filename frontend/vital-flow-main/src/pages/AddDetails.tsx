@@ -7,6 +7,7 @@ import { collection, addDoc, doc, setDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useGlucoseStore, type EntryState } from "@/store/glucoseStore";
 import { useRealtimeGlucose } from "@/hooks/useRealtimeGlucose";
+import { MagneticButton } from "@/components/MagneticButton";
 
 const fadeUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
@@ -248,7 +249,7 @@ export default function AddDetails() {
                         Back
                       </button>
                     )}
-                    <button
+                    <MagneticButton
                       type="button"
                       disabled={step === 2 && !valid}
                       onClick={() => (step === 2 ? submit() : setStep((s) => (s + 1) as 0 | 1 | 2))}
@@ -256,7 +257,7 @@ export default function AddDetails() {
                     >
                       <span className="text-sm font-medium">{step === 2 ? "Save entry" : "Continue"}</span>
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                    </button>
+                    </MagneticButton>
                   </div>
                 </motion.div>
               )}

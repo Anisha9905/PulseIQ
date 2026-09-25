@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { useGlucoseStore } from "@/store/glucoseStore";
+import { SpotlightCard } from "@/components/SpotlightCard";
 
 export function CalibrationCard() {
   const calibration = useGlucoseStore((s) => s.calibration);
@@ -13,7 +14,7 @@ export function CalibrationCard() {
       : "Fully calibrated";
 
   return (
-    <div className="rounded-3xl border border-border bg-card p-6 shadow-soft h-[140px] w-full flex flex-col justify-between">
+    <SpotlightCard className="min-h-[140px] w-full flex flex-col justify-between">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Calibration</p>
@@ -31,6 +32,6 @@ export function CalibrationCard() {
         />
         <div className="absolute inset-0 animate-shimmer rounded-full bg-[linear-gradient(90deg,transparent,hsl(var(--primary-foreground)/0.3),transparent)] bg-[length:200%_100%]" />
       </div>
-    </div>
+    </SpotlightCard>
   );
 }

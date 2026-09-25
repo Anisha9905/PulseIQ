@@ -17,6 +17,7 @@ import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { generatePDFReport, generatePDFDataURI } from "@/lib/reportGenerator";
 import { CalibrationTrendChart } from "@/components/dashboard/CalibrationTrendChart";
+import { SpotlightCard } from "@/components/SpotlightCard";
 
 const fadeUp = { initial: { opacity: 0, y: 24 }, animate: { opacity: 1, y: 0 } };
 
@@ -270,8 +271,7 @@ export default function Reports() {
         </motion.div>
 
         {/* Patient Identity Card */}
-        <motion.section {...fadeUp} transition={{ duration: 0.45, delay: 0.05 }}
-          className="rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/8 via-card to-card p-6 shadow-soft sm:p-8">
+        <SpotlightCard className="bg-gradient-to-br from-primary/8 via-card to-card sm:p-8">
           <div className="flex flex-wrap items-center gap-6">
             <div className="relative shrink-0">
               <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-primary/10 ring-2 ring-primary/20 text-2xl font-bold text-primary">
@@ -304,7 +304,7 @@ export default function Reports() {
               <p className="mt-0.5 text-xs capitalize font-semibold text-success">{healthCategory}</p>
             </div>
           </div>
-        </motion.section>
+        </SpotlightCard>
 
         {/* Stats Row */}
         <motion.div {...fadeUp} transition={{ duration: 0.45, delay: 0.1 }}
@@ -317,8 +317,7 @@ export default function Reports() {
         </motion.div>
 
         {/* Trend Chart */}
-        <motion.section {...fadeUp} transition={{ duration: 0.45, delay: 0.15 }}
-          className="rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8">
+        <SpotlightCard className="sm:p-8">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <h2 className="font-display text-lg font-semibold">Glucose Trend — Last 24 Hours</h2>
@@ -345,7 +344,7 @@ export default function Reports() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </motion.section>
+        </SpotlightCard>
 
         {/* Physiological Parameters (4 Cards) */}
         <motion.section {...fadeUp} transition={{ duration: 0.45, delay: 0.2 }}>
@@ -727,24 +726,24 @@ function PDFSection({ title, children }: { title: string; children: React.ReactN
 
 function StatCard({ label, value, unit, icon, tone }: { label: string; value: string; unit: string; icon: React.ReactNode; tone?: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+    <SpotlightCard className="p-4">
       <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">{icon} {label}</div>
       <div className="flex items-baseline gap-1">
         <span className={`font-display tnum text-2xl font-bold ${tone || ""}`}>{value}</span>
         <span className="text-xs text-muted-foreground">{unit}</span>
       </div>
-    </div>
+    </SpotlightCard>
   );
 }
 
 function VitalCard({ icon, label, value, unit, sub }: { icon: React.ReactNode; label: string; value: string; unit: string; sub: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-soft text-center">
+    <SpotlightCard className="p-4 text-center">
       <div className="mb-2 flex justify-center">{icon}</div>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 font-display text-xl font-bold tnum capitalize">{value}{unit && <span className="text-xs font-normal ml-0.5">{unit}</span>}</p>
       <p className="mt-0.5 text-[10px] text-muted-foreground capitalize">{sub}</p>
-    </div>
+    </SpotlightCard>
   );
 }
 

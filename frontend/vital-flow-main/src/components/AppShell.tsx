@@ -7,6 +7,10 @@ import { auth } from "@/lib/firebase";
 import { useGlucoseStore } from "@/store/glucoseStore";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AlertsStack } from "@/components/dashboard/AlertsStack";
+import { InteractiveGradientBackground } from "@/components/InteractiveGradientBackground";
+import { Logo } from "@/components/Logo";
+import { NavbarDock } from "@/components/NavbarDock";
+import { ScrollProgressGradient } from "@/components/ScrollProgressGradient";
 
 const links = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -44,48 +48,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-foreground dark:bg-[#0F172A] flex flex-col">
+    <InteractiveGradientBackground className="text-foreground">
+      <ScrollProgressGradient />
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-40 w-full border-b border-border bg-white/95 dark:bg-[#1E293B]/95 backdrop-blur-md shadow-sm transition-all">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           
           {/* 1. Brand Logo */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-white shadow-soft">
-              <Activity className="h-5 w-5" />
-            </div>
-            <span className="font-display text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-              PulseIQ
-            </span>
-          </div>
+          <Logo size="md" />
 
-          {/* 2. Horizontal Navigation Tabs (Desktop & Tablet) */}
-          <nav className="hidden md:flex items-center gap-1.5 bg-slate-100/70 dark:bg-slate-800/50 p-1.5 rounded-2xl border border-border/50">
-            {links.map((l) => {
-              const active = isLinkActive(l.to);
-              return (
-                <NavLink
-                  key={l.to}
-                  to={l.to}
-                  className={`relative flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
-                    active
-                      ? "text-primary font-semibold"
-                      : "text-muted-foreground hover:text-foreground hover:bg-white/60 dark:hover:bg-slate-800/60"
-                  }`}
-                >
-                  {active && (
-                    <motion.div
-                      layoutId="topbar-active-indicator"
-                      className="absolute inset-0 rounded-xl bg-white dark:bg-[#1E293B] shadow-sm border border-border/60"
-                      transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                    />
-                  )}
-                  <l.icon className={`h-4 w-4 shrink-0 relative z-10 ${active ? "text-primary" : "text-muted-foreground"}`} />
-                  <span className="relative z-10">{l.label}</span>
-                </NavLink>
-              );
-            })}
-          </nav>
+          {/* 2. Interactive Dock Navigation Bar (Desktop & Tablet) */}
+          <NavbarDock links={links} activePath={location.pathname} />
 
           {/* 3. Right Status Controls & User Account */}
           <div className="hidden sm:flex items-center gap-3 shrink-0">
@@ -204,6 +177,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </div>
       <AlertsStack />
-    </div>
+    </InteractiveGradientBackground>
   );
 }

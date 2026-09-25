@@ -411,6 +411,15 @@ wss.on("connection", (ws) => {
   });
 
   const interval = setInterval(async () => {
+    // ── Check for stale ESP32 hardware telemetry timeout (>4s without new packet) ──
+    if (lastEsp32RxTimestamp > 0 && (Date.now() - lastEsp32RxTimestamp > 4000)) {
+      if (esp32Status === "CONNECTED") {
+        esp32Status = "DISCONNECTED";
+        latestEsp32Data = null;
+        console.log("[ESP32 Timeout] No hardware telemetry received for >4s. Setting status to DISCONNECTED.");
+      }
+    }
+
     const now  = Timestamp.now();
     const hour = new Date().getHours();
     // Determine phase from time of day

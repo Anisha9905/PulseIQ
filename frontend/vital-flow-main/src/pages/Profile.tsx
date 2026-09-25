@@ -6,6 +6,7 @@ import { ProfileAvatar3D } from "@/components/ProfileAvatar3D";
 import { DeviceRing3D } from "@/components/DeviceRing3D";
 import { useGlucoseStore } from "@/store/glucoseStore";
 import { useRealtimeGlucose } from "@/hooks/useRealtimeGlucose";
+import { SpotlightCard } from "@/components/SpotlightCard";
 
 const fadeUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
@@ -18,12 +19,12 @@ export default function Profile() {
   const calibration = useGlucoseStore((s) => s.calibration);
   const confidence = useGlucoseStore((s) => s.confidence);
 
-  // Armband is strictly connected only when real ESP32 Wi-Fi telemetry is actively flowing (within last 15s)
+  // Armband is strictly connected only when real ESP32 Wi-Fi telemetry is actively flowing (within last 5s)
   const isArmbandConnected =
     esp32Status === "CONNECTED" &&
     esp32Data != null &&
     esp32Data.timestamp != null &&
-    (Date.now() - new Date(esp32Data.timestamp).getTime() < 15000);
+    (Date.now() - new Date(esp32Data.timestamp).getTime() < 5000);
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({
@@ -74,11 +75,7 @@ export default function Profile() {
     <AppShell>
       <main className="mx-auto max-w-7xl px-6 py-8 lg:py-12">
         {/* Hero */}
-        <motion.section
-          {...fadeUp}
-          transition={{ duration: 0.5 }}
-          className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card to-accent/40 p-8 shadow-card sm:p-10"
-        >
+        <SpotlightCard className="bg-gradient-to-br from-card to-accent/40 p-8 sm:p-10">
           <div className="grid items-center gap-8 sm:grid-cols-[auto_1fr]">
             <div className="relative h-[220px] w-[220px] sm:h-[260px] sm:w-[260px]">
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary-glow/20 to-transparent blur-2xl" />
@@ -104,15 +101,11 @@ export default function Profile() {
               </div>
             </div>
           </div>
-        </motion.section>
+        </SpotlightCard>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
           {/* Editable fields */}
-          <motion.section
-            {...fadeUp}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8 lg:col-span-2"
-          >
+          <SpotlightCard className="sm:p-8 lg:col-span-2">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="font-display text-lg font-semibold">Personal details</h2>
               <button
@@ -146,14 +139,10 @@ export default function Profile() {
               <ProgressMeter label="Calibration" value={calibration} hint="Learning your baseline" />
               <ProgressMeter label="Model confidence" value={confidence} hint="Predictions improving" />
             </div>
-          </motion.section>
+          </SpotlightCard>
 
           {/* Device status */}
-          <motion.section
-            {...fadeUp}
-            transition={{ duration: 0.5, delay: 0.15 }}
-            className="rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8"
-          >
+          <SpotlightCard className="sm:p-8">
             <div className="mb-2 flex items-center gap-2">
               {isArmbandConnected ? <Wifi className="h-4 w-4 text-emerald-500" /> : <WifiOff className="h-4 w-4 text-rose-500" />}
               <h2 className="font-display text-lg font-semibold">PulseIQ Armband</h2>
@@ -198,7 +187,7 @@ export default function Profile() {
                 )}
               </div>
             </div>
-          </motion.section>
+          </SpotlightCard>
         </div>
       </main>
     </AppShell>

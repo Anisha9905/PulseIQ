@@ -3,13 +3,19 @@ import { motion } from "framer-motion";
 import { Cpu, Wifi, WifiOff, RefreshCw, Activity, Thermometer, Zap, ShieldAlert, Radio } from "lucide-react";
 import { useGlucoseStore } from "@/store/glucoseStore";
 import { switchSensorMode } from "@/hooks/useRealtimeGlucose";
+import { SpotlightCard } from "@/components/SpotlightCard";
+import { SpinningText } from "@/components/SpinningText";
 
 export const Esp32LiveCard: React.FC = () => {
   const esp32Status = useGlucoseStore((s) => s.esp32Status);
   const esp32Data = useGlucoseStore((s) => s.esp32Data);
   const [showDebug, setShowDebug] = React.useState(false);
 
-  const isConnected = esp32Status === "CONNECTED" && esp32Data != null;
+  const isConnected =
+    esp32Status === "CONNECTED" &&
+    esp32Data != null &&
+    esp32Data.timestamp != null &&
+    (Date.now() - new Date(esp32Data.timestamp).getTime() < 5000);
 
   const displayTemp = isConnected && esp32Data.temperature != null ? `${esp32Data.temperature} °C` : "--";
   const displayGsr = isConnected && esp32Data.gsr != null ? `${esp32Data.gsr}` : "--";
@@ -18,7 +24,7 @@ export const Esp32LiveCard: React.FC = () => {
   const displayMotionLevel = isConnected ? (esp32Data.motionLevel || "Low") : "--";
 
   const getStatusBadge = () => {
-    if (esp32Status === "CONNECTED") {
+    if (isConnected) {
       return (
         <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-500 border border-emerald-500/20">
           <span className="relative flex h-2 w-2">
@@ -49,24 +55,24 @@ export const Esp32LiveCard: React.FC = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="w-full overflow-hidden rounded-3xl border border-border bg-card p-6 shadow-soft"
-    >
+    <SpotlightCard className="w-full">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
-            <Cpu className="h-6 w-6 text-primary" />
-          </div>
+        <div className="flex items-center gap-4">
+          <SpinningText
+            text="PHYSICAL ESP32 BOARD • HARDWARE STREAM • "
+            className="h-16 w-16 text-primary shrink-0"
+            fontSize={9.5}
+            radius={42}
+            duration={14}
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 shadow-sm border border-primary/20">
+              <Cpu className="h-5 w-5 text-primary" />
+            </div>
+          </SpinningText>
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-display text-lg font-semibold tracking-tight">ESP32 Hardware Telemetry Stream</h3>
-              <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Physical ESP32 Board
-              </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               Live telemetry stream from GPIO 15 (LM35), GPIO 13 (GSR), GPIO 34 (PPG Pulse), and MPU6050
@@ -165,7 +171,7 @@ export const Esp32LiveCard: React.FC = () => {
         <div className="mt-4 flex items-center gap-3 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-600 dark:text-amber-400">
           <ShieldAlert className="h-5 w-5 shrink-0 text-amber-500" />
           <span>
-            <strong>Waiting for physical ESP32 hardware telemetry stream.</strong> Connect your board to Wi-Fi (<code className="font-mono bg-muted px-1 py-0.5 rounded">http://10.122.73.207:5000/api/v1/telemetry</code>).
+            <strong>Waiting for physical ESP32 hardware telemetry stream.</strong> Connect your board to Wi-Fi (<code className="font-mono bg-muted px-1 py-0.5 rounded">http://10.142.123.207:5000/api/v1/telemetry</code>).
           </span>
         </div>
       )}
@@ -174,6 +180,6 @@ export const Esp32LiveCard: React.FC = () => {
       <div className="mt-4 rounded-xl bg-muted/40 p-3 text-[11px] leading-relaxed text-muted-foreground border border-border/30">
         <strong className="text-foreground">Research Prototype Disclaimer:</strong> PulseIQ is an experimental glucose <em>trend</em> estimation system. Individual sensor telemetry (GSR, LM35 temp, PPG pulse wave) correlates with physiological state transitions but does <strong>not</strong> directly measure blood glucose levels.
       </div>
-    </motion.div>
+    </SpotlightCard>
   );
 };

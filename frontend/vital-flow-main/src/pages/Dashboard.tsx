@@ -12,8 +12,8 @@ import { useRealtimeGlucose } from "@/hooks/useRealtimeGlucose";
 import { useLivePredictions } from "@/hooks/useLivePredictions";
 import { useGlucoseStore } from "@/store/glucoseStore";
 import { ProfileAvatar3D } from "@/components/ProfileAvatar3D";
-
 import { Esp32LiveCard } from "@/components/dashboard/Esp32LiveCard";
+import { ScrollReveal } from "@/components/ScrollReveal";
 
 const fadeUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
@@ -48,40 +48,36 @@ export default function Dashboard() {
         </motion.div>
 
         {/* ESP32 Hardware Integration Card (Top Position) */}
-        <motion.section {...fadeUp} transition={{ duration: 0.5, delay: 0.05 }} className="mb-6">
+        <ScrollReveal variant="fade-up" delay={0.05} className="mb-6">
           <Esp32LiveCard />
-        </motion.section>
+        </ScrollReveal>
 
-        <motion.section {...fadeUp} transition={{ duration: 0.5, delay: 0.08 }} className="mb-6">
+        <ScrollReveal variant="zoom-in" delay={0.08} className="mb-6">
           <HeroOrb />
-        </motion.section>
+        </ScrollReveal>
 
         <div className="grid gap-6 lg:grid-cols-3 items-start">
           {/* Top Row: Left Column (Trend Chart) */}
-          <motion.div {...fadeUp} transition={{ duration: 0.5, delay: 0.1 }} className="lg:col-span-2">
+          <ScrollReveal variant="slide-left" delay={0.1} className="lg:col-span-2">
             <TrendChart />
-          </motion.div>
+          </ScrollReveal>
 
           {/* Top Row: Right Column (Health Score Card) */}
-          <motion.div {...fadeUp} transition={{ duration: 0.5, delay: 0.15 }} className="lg:col-span-1 h-full flex">
+          <ScrollReveal variant="slide-right" delay={0.15} className="lg:col-span-1 h-full flex">
             <HealthScoreCard />
-          </motion.div>
+          </ScrollReveal>
 
           {/* Middle Row: Risk & Calibration (Full Width) */}
-          <motion.div
-            {...fadeUp}
-            transition={{ duration: 0.5, delay: 0.18 }}
-            className="lg:col-span-3 w-full grid grid-cols-1 sm:grid-cols-2 gap-6"
-          >
+          <ScrollReveal variant="fade-up" delay={0.18} className="lg:col-span-3 w-full grid grid-cols-1 sm:grid-cols-2 gap-6">
             <RiskCard />
             <CalibrationCard />
-          </motion.div>
+          </ScrollReveal>
 
           {/* System learning status */}
-          <motion.div
-            {...fadeUp}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="lg:col-span-3 w-full overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary/5 via-card to-primary-glow/5 p-6 shadow-soft sm:p-8"
+          <ScrollReveal
+            variant="zoom-in"
+            delay={0.2}
+            className="lg:col-span-3 w-full overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary/5 via-card to-primary-glow/5 p-6 shadow-soft sm:p-8 card-hover"
           >
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-start gap-4">
@@ -109,12 +105,12 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </ScrollReveal>
 
           {/* Insights Panel */}
-          <motion.div {...fadeUp} transition={{ duration: 0.5, delay: 0.25 }} className="lg:col-span-3 w-full">
+          <ScrollReveal variant="fade-up" delay={0.25} className="lg:col-span-3 w-full">
             <InsightsPanel />
-          </motion.div>
+          </ScrollReveal>
         </div>
 
         <p className="mt-12 text-center text-xs text-muted-foreground">

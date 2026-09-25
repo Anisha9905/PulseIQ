@@ -6,6 +6,7 @@ import { AppShell } from "@/components/AppShell";
 import { useGlucoseStore } from "@/store/glucoseStore";
 import { useRealtimeGlucose } from "@/hooks/useRealtimeGlucose";
 import { CalibrationTrendChart } from "@/components/dashboard/CalibrationTrendChart";
+import { SpotlightCard } from "@/components/SpotlightCard";
 
 const fadeUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
@@ -104,8 +105,7 @@ export default function History() {
 
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Timeline chart */}
-          <motion.section {...fadeUp} transition={{ duration: 0.5, delay: 0.1 }}
-            className="rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8 lg:col-span-2">
+          <SpotlightCard className="sm:p-8 lg:col-span-2">
             <h2 className="mb-1 font-display text-lg font-semibold">Timeline</h2>
             <p className="mb-6 text-sm text-muted-foreground">{range === "day" ? "Last 24 hours" : "Last 7 days"}</p>
             <div className="h-[280px] w-full">
@@ -138,11 +138,10 @@ export default function History() {
                 </div>
               </div>
             )}
-          </motion.section>
+          </SpotlightCard>
 
           {/* Insights */}
-          <motion.section {...fadeUp} transition={{ duration: 0.5, delay: 0.15 }}
-            className="rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8">
+          <SpotlightCard className="sm:p-8">
             <h2 className="mb-1 font-display text-lg font-semibold">Key insights</h2>
             <p className="mb-6 text-sm text-muted-foreground">Generated from your patterns</p>
             <div className="space-y-3">
@@ -154,7 +153,7 @@ export default function History() {
                 </motion.div>
               ))}
             </div>
-          </motion.section>
+          </SpotlightCard>
         </div>
 
         {/* ════════════════════════════════════════════════════════════════════
@@ -163,7 +162,7 @@ export default function History() {
         <CalibrationTrendChart />
 
         {/* Heatmap */}
-        <motion.section {...fadeUp} transition={{ duration: 0.5, delay: 0.25 }} className="mt-6 rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8">
+        <SpotlightCard className="mt-6 sm:p-8">
           <h2 className="mb-1 font-display text-lg font-semibold">Pattern heatmap</h2>
           <p className="mb-6 text-sm text-muted-foreground">7 days × 24 hours · darker = higher glucose</p>
           <div className="overflow-x-auto">
@@ -178,20 +177,22 @@ export default function History() {
                   <div className="w-9 text-right text-[10px] text-muted-foreground">{d === 0 ? "Today" : `-${d}d`}</div>
                   {Array.from({ length: 24 }).map((_, h) => {
                     const cell = heatmap.find((c) => c.day === d && c.hour === h);
-                    const v = cell?.value || 0;
-                    const intensity = v ? Math.min(1, Math.max(0.05, (v - 70) / 100)) : 0;
-                    const color = v > 140 ? `hsl(var(--glucose-high) / ${0.3 + intensity * 0.6})` : v < 70 && v > 0 ? `hsl(var(--glucose-low) / ${0.3 + intensity * 0.6})` : v ? `hsl(var(--primary) / ${0.15 + intensity * 0.55})` : "hsl(var(--muted))";
+                    const val = cell?.value || 0;
+                    const bg =
+                      val === 0 ? "bg-muted/40"
+                      : val < 90 ? "bg-primary/20"
+                      : val < 130 ? "bg-primary/50"
+                      : val < 160 ? "bg-primary/80"
+                      : "bg-primary";
                     return (
-                      <motion.div key={h} initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: (d * 24 + h) * 0.002 }} title={v ? `${Math.round(v)} mg/dL` : "no data"}
-                        className="h-5 w-5 rounded-md transition-smooth hover:scale-125" style={{ background: color }} />
+                      <div key={h} title={`${val ? Math.round(val) + " mg/dL" : "No data"}`} className={`h-5 w-5 rounded-md transition-all ${bg}`} />
                     );
                   })}
                 </div>
               ))}
             </div>
           </div>
-        </motion.section>
+        </SpotlightCard>
       </main>
     </AppShell>
   );
@@ -199,13 +200,13 @@ export default function History() {
 
 function Stat({ label, value, unit, tone }: { label: string; value: string; unit: string; tone?: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+    <SpotlightCard className="p-4">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 flex items-baseline gap-1">
         <span className={`text-display tnum text-2xl font-semibold ${tone || ""}`}>{value}</span>
         <span className="text-xs text-muted-foreground">{unit}</span>
       </div>
-    </div>
+    </SpotlightCard>
   );
 }
 

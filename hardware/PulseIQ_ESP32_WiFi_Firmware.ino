@@ -18,11 +18,11 @@
 #include <Adafruit_SSD1306.h>
 
 // ================= WI-FI CONFIGURATION =================
-const char* WIFI_SSID = "Heyyyyyyy";                   // Your Wi-Fi Name
-const char* WIFI_PASS = "password12";                   // Your Wi-Fi Password
+const char* WIFI_SSID = "OPPO Reno10 5G";              // Your Wi-Fi Name
+const char* WIFI_PASS = "123456789";                   // Your Wi-Fi Password
 
-// Computer backend URL (IP: 10.122.73.207, Port: 5000)
-const char* SERVER_URL = "http://10.122.73.207:5000/api/v1/telemetry";
+// Computer backend URL (IP: 10.235.157.207, Port: 5000)
+const char* SERVER_URL = "http://10.235.157.207:5000/api/v1/telemetry";
 
 // ================= PIN DEFINITIONS (ADC1 - WI-FI COMPATIBLE) =================
 #define GSR_PIN     33    // GPIO 33 (ADC1_CH5 - Wi-Fi Compatible)
@@ -220,8 +220,10 @@ void loop() {
     String psychologicalState = "CALM";
     if (gsrValue >= 2000) {
       psychologicalState = "NO CONTACT";
-    } else if (gsrValue > 800 && smoothedBpm > 85) {
+    } else if (gsrValue > 1200 && smoothedBpm > 85) {
       psychologicalState = "STRESSED";
+    } else if (smoothedBpm == 0) {
+      psychologicalState = "CALM";
     }
 
     // Serial Output
@@ -256,7 +258,12 @@ void loop() {
       }
       http.end();
     } else {
-      Serial.println("Wi-Fi disconnected. Waiting for auto-reconnect...");
+      Serial.println("Wi-Fi disconnected. Triggering active reconnect...");
+      if (currentTime - lastReconnectAttempt > 10000) {
+        lastReconnectAttempt = currentTime;
+        WiFi.disconnect();
+        WiFi.reconnect();
+      }
     }
 
     // OLED Display

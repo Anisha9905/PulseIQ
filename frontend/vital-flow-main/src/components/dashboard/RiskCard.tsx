@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Shield, AlertTriangle, TrendingDown } from "lucide-react";
 import { useGlucoseStore } from "@/store/glucoseStore";
+import { SpotlightCard } from "@/components/SpotlightCard";
 
 const map = {
   normal: {
@@ -35,11 +36,7 @@ export function RiskCard() {
   const Icon = meta.icon;
 
   return (
-    <motion.div
-      layout
-      transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
-      className={`relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br ${meta.bg} p-6 shadow-soft ring-1 ${meta.ring} h-[140px] w-full`}
-    >
+    <SpotlightCard className={`bg-gradient-to-br ${meta.bg} ring-1 ${meta.ring} min-h-[140px] w-full`}>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Risk status</p>
@@ -50,6 +47,6 @@ export function RiskCard() {
           <Icon className="h-5 w-5" />
         </div>
       </div>
-    </motion.div>
+    </SpotlightCard>
   );
 }

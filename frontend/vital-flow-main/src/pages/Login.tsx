@@ -9,6 +9,11 @@ import { BreathingOrb } from "@/components/BreathingOrb";
 import { ProfileAvatar3D } from "@/components/ProfileAvatar3D";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useGlucoseStore } from "@/store/glucoseStore";
+import { InteractiveGradientBackground } from "@/components/InteractiveGradientBackground";
+import { DoctorBubbleVisual } from "@/components/DoctorBubbleVisual";
+import { Logo } from "@/components/Logo";
+import { PulseIQIntroSplash } from "@/components/PulseIQIntroSplash";
+import { MagneticButton } from "@/components/MagneticButton";
 
 type Mode = "login" | "signup";
 type SignupStep = 0 | 1 | 2 | 3; // 0=credentials, 1=identity, 2=contact, 3=avatar
@@ -18,7 +23,8 @@ export default function Login() {
   const setUser = useGlucoseStore((s) => s.setUser);
   const setOnboardingComplete = useGlucoseStore((s) => s.setOnboardingComplete);
 
-  // ── Mode toggle ──────────────────────────────────────────────────────────────
+  // ── Mode & Intro Splash State ────────────────────────────────────────────────
+  const [showSplash, setShowSplash] = useState(true);
   const [mode, setMode] = useState<Mode>("signup");
 
   // ── Shared credentials ───────────────────────────────────────────────────────
@@ -199,27 +205,26 @@ export default function Login() {
   const showAvatar = mode === "signup" && (step === 3 || !!avatar);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-aurora">
-      <div className="pointer-events-none absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-primary/20 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-40 -right-40 h-[600px] w-[600px] rounded-full bg-primary-glow/20 blur-3xl" />
+    <>
+      {showSplash && (
+        <PulseIQIntroSplash autoPlay={showSplash} onComplete={() => setShowSplash(false)} />
+      )}
+      <InteractiveGradientBackground>
 
-      <header className="relative z-10 flex items-center justify-between px-8 py-6">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary to-primary-glow shadow-soft" />
-          <span className="font-display text-lg font-semibold tracking-tight">PulseIQ</span>
-        </div>
-        <ThemeToggle />
-      </header>
+        <header className="relative z-10 flex items-center justify-between px-8 py-6">
+          <Logo size="md" onClick={() => setShowSplash(true)} />
+          <ThemeToggle />
+        </header>
 
-      <main className="relative z-10 mx-auto flex min-h-[calc(100vh-88px)] max-w-6xl items-center justify-center px-6 lg:px-10">
-        <div className="grid w-full items-center gap-12 lg:grid-cols-2">
+      <main className="relative z-10 mx-auto flex min-h-[calc(100vh-88px)] max-w-7xl items-center justify-center px-6 lg:px-12 py-8">
+        <div className="grid w-full items-center gap-10 lg:grid-cols-12">
 
-          {/* ── Left: Visualization ───────────────────────────────────────────── */}
+          {/* ── Left: Visualization with Glass Bubble Frame & Interactive Gaze ───── */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1.2, ease: [0.32, 0.72, 0, 1] }}
-            className="order-2 relative flex h-[400px] items-center justify-center lg:order-1 lg:h-[600px]"
+            transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
+            className="order-2 relative flex items-center justify-center lg:order-1 lg:col-span-6 xl:col-span-7"
           >
             {/* 3D Orb / Avatar */}
             <div className="absolute inset-0 z-0 flex items-center justify-center opacity-60">
@@ -230,25 +235,8 @@ export default function Login() {
               )}
             </div>
 
-            {/* Doctors illustration */}
-            <div className="absolute inset-0 m-auto z-10 w-full max-w-[480px] scale-110" style={{ pointerEvents: "none" }}>
-              <img
-                src="/doctors.png"
-                alt="Medical Care"
-                className="relative h-full w-full object-contain mix-blend-multiply"
-                style={{
-                  WebkitMaskImage: "radial-gradient(ellipse at center, black 45%, transparent 70%)",
-                  maskImage: "radial-gradient(ellipse at center, black 45%, transparent 70%)",
-                }}
-              />
-              <div
-                className="absolute inset-0 bg-white/30 mix-blend-overlay"
-                style={{
-                  WebkitMaskImage: "radial-gradient(ellipse at center, black 45%, transparent 70%)",
-                  maskImage: "radial-gradient(ellipse at center, black 45%, transparent 70%)",
-                }}
-              />
-            </div>
+            {/* Glass Bubble Frame & Cursor-Tracking Doctors Visual */}
+            <DoctorBubbleVisual className="relative z-10 w-full" />
           </motion.div>
 
           {/* ── Right: Form card ──────────────────────────────────────────────── */}
@@ -256,9 +244,9 @@ export default function Login() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.1 }}
-            className="order-1 lg:order-2"
+            className="order-1 lg:order-2 lg:col-span-6 xl:col-span-5 flex justify-center"
           >
-            <div className="glass mx-auto max-w-md rounded-3xl p-8 shadow-card sm:p-10">
+            <div className="glass w-full max-w-lg rounded-3xl p-8 shadow-card sm:p-10 card-hover transition-all">
 
               {/* Mode Switcher Tabs */}
               <div className="mb-8 flex rounded-2xl border border-border bg-background/40 p-1">
@@ -312,11 +300,11 @@ export default function Login() {
                       )}
                     </div>
 
-                    <button
+                    <MagneticButton
                       type="button"
                       disabled={loading || !email || !password}
                       onClick={handleLogin}
-                      className="group mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-primary-foreground shadow-soft transition-smooth hover:shadow-glow hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:hover:scale-100"
+                      className="group mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-primary-foreground shadow-soft transition-smooth hover:shadow-glow disabled:opacity-50"
                     >
                       {loading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -326,7 +314,7 @@ export default function Login() {
                           <LogIn className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                         </>
                       )}
-                    </button>
+                    </MagneticButton>
 
                     <p className="mt-5 text-center text-xs text-muted-foreground">
                       Don't have an account?{" "}
@@ -478,7 +466,7 @@ export default function Login() {
                           Back
                         </button>
                       )}
-                      <button
+                      <MagneticButton
                         type="button"
                         disabled={!signupCanContinue || loading}
                         onClick={step === 3 ? signupFinish : signupNext}
@@ -494,7 +482,7 @@ export default function Login() {
                             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                           </>
                         )}
-                      </button>
+                      </MagneticButton>
                     </div>
 
                     <p className="mt-5 text-center text-xs text-muted-foreground">
@@ -516,7 +504,8 @@ export default function Login() {
 
         </div>
       </main>
-    </div>
+    </InteractiveGradientBackground>
+    </>
   );
 }
 

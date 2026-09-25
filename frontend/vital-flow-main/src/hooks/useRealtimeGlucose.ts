@@ -43,8 +43,8 @@ export function useRealtimeGlucose() {
         const data = JSON.parse(event.data);
 
         if (data.mode) setSensorMode(data.mode);
-        if (data.esp32Status) setEsp32Status(data.esp32Status);
-        if (data.esp32Data) setEsp32Data(data.esp32Data);
+        if (data.esp32Status !== undefined) setEsp32Status(data.esp32Status);
+        setEsp32Data(data.esp32Data || null);
         
         if (data.glucose && data.glucose.length > 0) {
           // The backend sends an array of glucose readings. The first one is "Now".

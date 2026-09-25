@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, Thermometer, Brain, Wind, Activity as ActivityIcon, Sparkles, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { useGlucoseStore } from "@/store/glucoseStore";
+import { SpotlightCard } from "@/components/SpotlightCard";
 
 export function HealthScoreCard() {
   const healthScore = useGlucoseStore((s) => s.healthScore);
@@ -70,10 +71,7 @@ export function HealthScoreCard() {
   const offset = circumference - (healthScore / 100) * circumference;
 
   return (
-    <motion.div
-      layout
-      className={`relative overflow-hidden rounded-3xl border bg-gradient-to-br ${style.bg} p-4 sm:p-5 shadow-soft ring-1 ${style.ring} h-full w-full flex flex-col justify-between`}
-    >
+    <SpotlightCard className={`h-full w-full bg-gradient-to-br ${style.bg} p-4 sm:p-5 shadow-soft ring-1 ${style.ring}`}>
       <div className="flex flex-col gap-3">
         {/* Top Row: Gauge & Category */}
         <div className="flex flex-row items-center justify-between gap-4">
@@ -220,7 +218,7 @@ export function HealthScoreCard() {
           </AnimatePresence>
         </div>
       )}
-    </motion.div>
+    </SpotlightCard>
   );
 }
 

@@ -14,7 +14,7 @@ export function HeroOrb() {
   const meta = stateLabels[state];
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card to-accent/40 p-8 shadow-card sm:p-10">
+    <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card to-accent/40 p-8 shadow-card sm:p-10 card-hover">
       <div className="grid items-center gap-6 sm:grid-cols-[1fr_auto] sm:gap-10">
         <div className="space-y-5">
           <div className="flex items-center gap-2">

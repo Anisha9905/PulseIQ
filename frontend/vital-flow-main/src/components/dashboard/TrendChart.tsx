@@ -1,6 +1,7 @@
 import { Area, AreaChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useGlucoseStore } from "@/store/glucoseStore";
 import { motion } from "framer-motion";
+import { SpotlightCard } from "@/components/SpotlightCard";
 
 export function TrendChart() {
   const trend = useGlucoseStore((s) => s.trend);
@@ -10,12 +11,7 @@ export function TrendChart() {
   }));
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8"
-    >
+    <SpotlightCard className="sm:p-8">
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h3 className="font-display text-lg font-semibold">Last 60 minutes</h3>
@@ -77,6 +73,6 @@ export function TrendChart() {
           </AreaChart>
         </ResponsiveContainer>
       </div>
-    </motion.div>
+    </SpotlightCard>
   );
 }

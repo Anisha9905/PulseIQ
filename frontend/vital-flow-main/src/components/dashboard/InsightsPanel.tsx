@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useGlucoseStore } from "@/store/glucoseStore";
+import { SpotlightCard } from "@/components/SpotlightCard";
 
 export function InsightsPanel() {
   const insights = useGlucoseStore((s) => s.insights);
   return (
-    <div className="rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-7">
+    <SpotlightCard className="sm:p-7">
       <div className="mb-5 flex items-center gap-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Sparkles className="h-4 w-4" />
@@ -27,6 +28,6 @@ export function InsightsPanel() {
           </motion.li>
         ))}
       </ul>
-    </div>
+    </SpotlightCard>
   );
 }

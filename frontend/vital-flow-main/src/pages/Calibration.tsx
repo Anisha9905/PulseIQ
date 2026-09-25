@@ -5,6 +5,8 @@ import { Check, Loader2, ChevronRight, Brain, Activity } from "lucide-react";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useGlucoseStore } from "@/store/glucoseStore";
+import { DoctorClipboardAssistant } from "@/components/DoctorClipboardAssistant";
+import { MagneticButton } from "@/components/MagneticButton";
 
 const PHASES = [
   { id: 0, label: "Fasting",       hint: "Morning before breakfast (8+ hrs fast)",  color: "from-blue-500/20 to-blue-600/10",   border: "border-blue-500/40",   text: "text-blue-600 dark:text-blue-400" },
@@ -27,6 +29,7 @@ export default function Calibration() {
   const [trainStage, setTrainStage] = useState<"idle"|"saving"|"training"|"done">("idle");
   const [confidence, setLocalConfidence] = useState<number | null>(null);
   const [error, setError]         = useState<string | null>(null);
+  const [activeCellLabel, setActiveCellLabel] = useState<string | undefined>(undefined);
 
   const setValue = (day: number, phase: number, val: string) => {
     setValues((prev) => ({ ...prev, [`${day}-${phase}`]: val }));
@@ -152,7 +155,7 @@ export default function Calibration() {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-5xl px-6 py-6">
+      <main className="relative z-10 mx-auto max-w-7xl px-6 py-6">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -223,13 +226,31 @@ export default function Calibration() {
           )}
         </AnimatePresence>
 
-        {/* ── 7-day × 4-phase Grid ─────────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="overflow-hidden rounded-3xl border border-border bg-card shadow-card"
-        >
+        {/* ── Split Layout: Doctor Assistant + 7-Day Grid ──────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Left: Animated Doctor holding Clipboard watching the table */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="lg:col-span-4 xl:col-span-4 flex justify-center sticky top-24"
+          >
+            <DoctorClipboardAssistant
+              filledCount={filledCells}
+              totalCount={totalCells}
+              activeCellLabel={activeCellLabel}
+            />
+          </motion.div>
+
+          {/* Right: 7-Day Data Grid Table */}
+          <div className="lg:col-span-8 xl:col-span-8 space-y-4">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="overflow-hidden rounded-3xl border border-border bg-card shadow-card"
+            >
           {/* Phase headers */}
           <div className="grid grid-cols-5 gap-0 border-b border-border">
             <div className="p-4 text-xs font-medium text-muted-foreground">Day</div>
@@ -275,6 +296,8 @@ export default function Calibration() {
                           type="number"
                           value={val}
                           onChange={(e) => setValue(day, ph.id, e.target.value)}
+                          onFocus={() => setActiveCellLabel(`Day ${day} ${ph.label}`)}
+                          onBlur={() => setActiveCellLabel(undefined)}
                           placeholder="mg/dL"
                           min={40}
                           max={400}
@@ -323,7 +346,7 @@ export default function Calibration() {
           transition={{ delay: 0.25 }}
           className="mt-6 flex flex-col items-center gap-3"
         >
-          <button
+          <MagneticButton
             onClick={handleSubmit}
             disabled={!canSubmit || loading}
             className="group flex h-14 w-full max-w-sm items-center justify-center gap-3 rounded-2xl bg-primary text-primary-foreground shadow-soft transition-smooth hover:shadow-glow hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
@@ -337,14 +360,16 @@ export default function Calibration() {
                 <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
               </>
             )}
-          </button>
+          </MagneticButton>
           {!canSubmit && (
             <p className="text-xs text-muted-foreground">
               Fill all {totalCells} cells to enable training ({totalCells - filledCells} remaining)
             </p>
           )}
         </motion.div>
-      </main>
+      </div>
     </div>
+  </main>
+</div>
   );
 }
