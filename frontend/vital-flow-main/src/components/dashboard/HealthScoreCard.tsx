@@ -128,7 +128,7 @@ export function HealthScoreCard() {
         </div>
 
         {/* Vitals Grid — Connected to live ESP32 hardware and AI engine */}
-        <div className="mt-2.5 grid grid-cols-2 gap-2 border-t border-border/20 pt-2.5 sm:grid-cols-4">
+        <div className="mt-2.5 grid grid-cols-2 gap-2 border-t border-border/20 pt-2.5 sm:grid-cols-3 lg:grid-cols-5">
           <VitalItem
             icon={Heart}
             label="Heart Rate"
